@@ -7,61 +7,45 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 6:** API **5** (profiles, fans, misc, RGB/logo) |
-| libperfectsense | **Phase 6+** sysfs client |
-| CLI | Sysfs one-shot (works **without** daemon) |
-| perfectsensed / D-Bus | **Phase 7:** `org.perfectsense.Sense1` |
+| Kernel module | **Phase 6:** API **5** (WMI features) |
+| libperfectsense | **Phase 8:** sysfs + CPU power |
+| CLI | Sysfs + `cpu` presets (no daemon required) |
+| perfectsensed / D-Bus | **Phase 7+8:** Sense1 + `CpuPreset` / `CpuRestore` |
 | FanAggressor | Not implemented |
-| Arch package | PKGBUILD skeleton (not installable) |
+| Arch package | PKGBUILD skeleton |
 
 ## Shipped today
 
-### Kernel (`kmod/`, API **5**)
+### CPU power (Phase 8, userspace only)
 
-Sysfs groups under `/sys/devices/platform/perfectsense/`:
-
-- `perfect_sense/` — thermal, fans, battery/misc, `lighting_reset`
-- `four_zoned_kb/` — `per_zone_mode`, `four_zone_mode`
-- `back_logo/color`
-
-### Userspace
+Reads/writes `cpufreq`, `intel_pstate`, and package RAPL (`intel-rapl:0`).
 
 ```text
-meson setup build && meson compile -C build
-build/perfectsense …          # sysfs CLI
-build/perfectsensed           # system D-Bus daemon (root)
+perfectsense cpu status
+perfectsense cpu snapshot          # baseline for restore
+perfectsense cpu preset power|balanced|performance|turbo [--sync-profile]
+perfectsense cpu restore
+perfectsense cpu set governor|epp|turbo|max-perf|pl1|pl2 …
 ```
 
-Install snippets (Meson `install`):
+| Preset | Governor | EPP | Optional `--sync-profile` |
+|--------|----------|-----|---------------------------|
+| `power` / `eco` | powersave | power | `low-power` |
+| `balanced` | powersave | balance_performance | `balanced` |
+| `performance` / `bp` | powersave | performance | `balanced-performance` |
+| `turbo` | performance | performance | `performance` |
 
-- `lib/systemd/system/perfectsensed.service`
-- `share/dbus-1/system.d/org.perfectsense.Sense1.conf`
-- `share/dbus-1/interfaces/org.perfectsense.Sense1.xml`
+Snapshot file: `/run/perfectsense/cpu-power.snap` (created on first preset or
+`cpu snapshot`; restore returns to that baseline).
 
-### D-Bus (`org.perfectsense.Sense1`)
+D-Bus: properties `CpuGovernor`, `CpuEpp`, `CpuTurbo`, `CpuMaxPerfPct`,
+`CpuPl1Uw`, `CpuPl2Uw`; methods `CpuPreset(sb)`, `CpuRestore()`.
 
-| Item | Value |
-|------|-------|
-| Bus name | `org.perfectsense.Sense1` |
-| Object path | `/org/perfectsense/Sense1` |
-| Interface | `org.perfectsense.Sense1` |
+### Prior phases
 
-**Properties (selected):** `ApiVersion`, `Available`, `ThermalProfile` (RW),
-`PlatformProfile`, `AcOnline`, fan duty/target/auto, `BatteryLimiter`,
-`UsbCharging`, `Rgb`, `Logo`.
-
-**Methods:** `SetFanTarget(uu)`, `SetFanAuto()`, `SetRgb(s)`, `SetLogo(s)`,
-`Refresh()`.
-
-**Signals:** `ProfileChanged(s)` — emitted when `ThermalProfile` is set via D-Bus.
-
-```text
-busctl introspect org.perfectsense.Sense1 /org/perfectsense/Sense1 org.perfectsense.Sense1
-busctl set-property … ThermalProfile s balanced
-```
-
-Requires `perfectsense.ko` loaded. Stopping the daemon does **not** break the CLI.
+Kernel API 5 + Sense1 daemon as documented previously (thermal, fans, attrs,
+RGB/logo).
 
 ## Not yet
 
-FanAggressor, CPU power presets, hardware key → D-Bus (Phases 8–10).
+FanAggressor, hardware key events, packaging polish (Phases 9–10).

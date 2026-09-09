@@ -8,25 +8,21 @@
 | Área | Estado |
 |------|--------|
 | Módulo kernel | **Fase 6:** API **5** |
-| libperfectsense | **Fase 6+** |
-| CLI | Sysfs (funciona **sem** daemon) |
-| perfectsensed / D-Bus | **Fase 7:** `org.perfectsense.Sense1` |
+| libperfectsense | **Fase 8:** + CPU power |
+| CLI | + `cpu` presets |
+| perfectsensed / D-Bus | **Fase 7+8** |
 | FanAggressor | Não implementado |
-| Pacote Arch | Skeleton PKGBUILD |
+| Pacote Arch | Skeleton |
 
-## D-Bus
-
-- Nome: `org.perfectsense.Sense1`
-- Path: `/org/perfectsense/Sense1`
-- Sinal: `ProfileChanged(s)` ao mudar perfil via D-Bus
-- Unit: `perfectsensed.service`
+## CPU power (Fase 8)
 
 ```text
-busctl introspect org.perfectsense.Sense1 /org/perfectsense/Sense1 org.perfectsense.Sense1
+perfectsense cpu status|snapshot|preset|restore|set …
 ```
 
-A CLI continua via sysfs sem o daemon.
+Presets: `power`, `balanced`, `performance`, `turbo` (+ `--sync-profile`).
+Snapshot em `/run/perfectsense/cpu-power.snap`.
 
 ## Ainda não
 
-FanAggressor, CPU power, tecla turbo → D-Bus.
+FanAggressor, tecla turbo → D-Bus, polish de pacote.

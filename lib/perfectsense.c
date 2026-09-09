@@ -77,6 +77,10 @@ static void path_join(char *out, size_t outlen, const char *root,
 	snprintf(out, outlen, "%s/%s", root, leaf);
 }
 
+/* Forward decls used by ps_status_read */
+int ps_attr_get_int(const char *name, int *value);
+int ps_attr_set_int(const char *name, int value);
+
 const char *ps_sysfs_root(void)
 {
 	static char envbuf[512];
@@ -187,6 +191,21 @@ int ps_status_read(struct ps_status *out)
 		snprintf(out->platform_profile, sizeof(out->platform_profile),
 			 "%s", out->thermal_profile);
 
+	out->battery_limiter = -1;
+	out->battery_calibration = -1;
+	out->usb_charging = -1;
+	out->lcd_override = -1;
+	out->backlight_timeout = -1;
+	out->boot_animation_sound = -1;
+
+	(void)ps_attr_get_int("battery_limiter", &out->battery_limiter);
+	(void)ps_attr_get_int("battery_calibration", &out->battery_calibration);
+	(void)ps_attr_get_int("usb_charging", &out->usb_charging);
+	(void)ps_attr_get_int("lcd_override", &out->lcd_override);
+	(void)ps_attr_get_int("backlight_timeout", &out->backlight_timeout);
+	(void)ps_attr_get_int("boot_animation_sound",
+			      &out->boot_animation_sound);
+
 	return 0;
 }
 
@@ -273,6 +292,67 @@ int ps_fan_set(unsigned cpu, unsigned gpu)
 int ps_fan_set_auto(void)
 {
 	return ps_fan_set(0, 0);
+}
+
+static int attr_name_ok(const char *name)
+{
+	static const char *const allowed[] = {
+		"battery_limiter",
+		"battery_calibration",
+		"usb_charging",
+		"lcd_override",
+		"backlight_timeout",
+		"boot_animation_sound",
+		NULL,
+	};
+	int i;
+
+	if (!name)
+		return 0;
+	for (i = 0; allowed[i]; i++) {
+		if (!strcmp(name, allowed[i]))
+			return 1;
+	}
+	return 0;
+}
+
+int ps_attr_get_int(const char *name, int *value)
+{
+	char path[512];
+	char buf[64];
+	char *end;
+	long v;
+	int err;
+
+	if (!value || !attr_name_ok(name))
+		return -EINVAL;
+
+	path_join(path, sizeof(path), ps_sysfs_root(), name);
+	err = read_trimmed(path, buf, sizeof(buf));
+	if (err)
+		return err;
+
+	v = strtol(buf, &end, 0);
+	if (end == buf || *end != '\0')
+		return -EINVAL;
+	if (v < -1 || v > 100)
+		return -EINVAL;
+
+	*value = (int)v;
+	return 0;
+}
+
+int ps_attr_set_int(const char *name, int value)
+{
+	char path[512];
+	char buf[32];
+
+	if (!attr_name_ok(name))
+		return -EINVAL;
+
+	path_join(path, sizeof(path), ps_sysfs_root(), name);
+	snprintf(buf, sizeof(buf), "%d", value);
+	return write_text(path, buf);
 }
 
 const char *ps_strerror(int err)

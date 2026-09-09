@@ -18,20 +18,22 @@ static void usage(FILE *out)
 		"Usage: perfectsense [--json] <command> [args]\n"
 		"\n"
 		"Commands:\n"
-		"  status                 Show profile, AC, and fan state\n"
-		"  mode get               Show thermal profile\n"
-		"  mode set <name>        Set thermal profile\n"
-		"  fan get                Show live duty and target\n"
-		"  fan set <cpu> <gpu>    Set fan target percent (0-100)\n"
-		"  fan auto               Return fans to firmware auto (0,0)\n"
-		"  help                   Show this help\n"
+		"  status                      Profile, AC, fans, Phase 5 attrs\n"
+		"  mode get|set <name>         Thermal profile\n"
+		"  fan get|set <cpu> <gpu>|auto\n"
+		"  battery get|on|off          80% charge limiter\n"
+		"  battery calibration get|on|off\n"
+		"  usb get|set <0|10|20|30>    USB charging while off (minutes)\n"
+		"  lcd get|set <0|1>           LCD override (may be -1 unsupported)\n"
+		"  kb-timeout get|set <0|1>    KB backlight 30s timeout\n"
+		"  boot-sound get|set <0|1>    Boot animation sound\n"
+		"  help\n"
 		"\n"
 		"Mode names: low-power | quiet | balanced |\n"
 		"            balanced-performance | performance\n"
 		"Aliases:    eco→low-power, turbo→performance, bp→balanced-performance\n"
 		"\n"
-		"Env: PERFECTSENSE_SYSFS  override sysfs root\n"
-		"     (default: /sys/devices/platform/perfectsense/perfect_sense)\n",
+		"Env: PERFECTSENSE_SYSFS  override sysfs root\n",
 		out);
 }
 
@@ -41,8 +43,20 @@ static int fail(int err)
 	return 1;
 }
 
+static const char *json_int_or_null(int v, char *tmp, size_t n)
+{
+	if (v < 0) {
+		snprintf(tmp, n, "null");
+		return tmp;
+	}
+	snprintf(tmp, n, "%d", v);
+	return tmp;
+}
+
 static int emit_status_json(const struct ps_status *s)
 {
+	char b1[16], b2[16], b3[16], b4[16], b5[16], b6[16];
+
 	printf(
 		"{\"api_version\":%u,"
 		"\"thermal_profile\":\"%s\","
@@ -52,12 +66,24 @@ static int emit_status_json(const struct ps_status *s)
 		"\"fan\":{"
 		"\"duty\":{\"cpu\":%u,\"gpu\":%u},"
 		"\"target\":{\"cpu\":%u,\"gpu\":%u},"
-		"\"auto\":%s"
-		"}}\n",
+		"\"auto\":%s},"
+		"\"battery_limiter\":%s,"
+		"\"battery_calibration\":%s,"
+		"\"usb_charging\":%s,"
+		"\"lcd_override\":%s,"
+		"\"backlight_timeout\":%s,"
+		"\"boot_animation_sound\":%s"
+		"}\n",
 		s->api_version, s->thermal_profile, s->thermal_profile_raw,
 		s->ac_online ? "true" : "false", s->platform_profile,
 		s->fan_duty_cpu, s->fan_duty_gpu, s->fan_target_cpu,
-		s->fan_target_gpu, s->fan_auto ? "true" : "false");
+		s->fan_target_gpu, s->fan_auto ? "true" : "false",
+		json_int_or_null(s->battery_limiter, b1, sizeof(b1)),
+		json_int_or_null(s->battery_calibration, b2, sizeof(b2)),
+		json_int_or_null(s->usb_charging, b3, sizeof(b3)),
+		json_int_or_null(s->lcd_override, b4, sizeof(b4)),
+		json_int_or_null(s->backlight_timeout, b5, sizeof(b5)),
+		json_int_or_null(s->boot_animation_sound, b6, sizeof(b6)));
 	return 0;
 }
 
@@ -71,6 +97,12 @@ static int emit_status_text(const struct ps_status *s)
 	printf("fan_duty: %u,%u\n", s->fan_duty_cpu, s->fan_duty_gpu);
 	printf("fan_target: %u,%u%s\n", s->fan_target_cpu, s->fan_target_gpu,
 	       s->fan_auto ? " (auto)" : "");
+	printf("battery_limiter: %d\n", s->battery_limiter);
+	printf("battery_calibration: %d\n", s->battery_calibration);
+	printf("usb_charging: %d\n", s->usb_charging);
+	printf("lcd_override: %d\n", s->lcd_override);
+	printf("backlight_timeout: %d\n", s->backlight_timeout);
+	printf("boot_animation_sound: %d\n", s->boot_animation_sound);
 	return 0;
 }
 
@@ -217,6 +249,78 @@ static int cmd_fan(int argc, char **argv)
 	return 1;
 }
 
+static int emit_attr(const char *name, int value)
+{
+	if (g_json)
+		printf("{\"%s\":%d}\n", name, value);
+	else
+		printf("%d\n", value);
+	return 0;
+}
+
+static int cmd_bool_attr(const char *sysfs_name, int argc, char **argv)
+{
+	const char *sub;
+	int value;
+	int err;
+
+	if (argc < 1) {
+		usage(stderr);
+		return 1;
+	}
+	sub = argv[0];
+
+	if (!strcmp(sub, "get")) {
+		err = ps_attr_get_int(sysfs_name, &value);
+		if (err)
+			return fail(err);
+		return emit_attr(sysfs_name, value);
+	}
+	if (!strcmp(sub, "on") || !strcmp(sub, "off")) {
+		err = ps_attr_set_int(sysfs_name, !strcmp(sub, "on") ? 1 : 0);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"%s\":%d}\n", sysfs_name,
+			       !strcmp(sub, "on") ? 1 : 0);
+		else
+			printf("%s: %s\n", sysfs_name, sub);
+		return 0;
+	}
+	if (!strcmp(sub, "set")) {
+		long v;
+		char *end;
+
+		if (argc < 2) {
+			fprintf(stderr, "perfectsense: set requires <value>\n");
+			return 1;
+		}
+		v = strtol(argv[1], &end, 10);
+		if (*end) {
+			fputs("perfectsense: invalid value\n", stderr);
+			return 1;
+		}
+		err = ps_attr_set_int(sysfs_name, (int)v);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"%s\":%ld}\n", sysfs_name, v);
+		else
+			printf("%s: %ld\n", sysfs_name, v);
+		return 0;
+	}
+
+	fprintf(stderr, "perfectsense: unknown subcommand '%s'\n", sub);
+	return 1;
+}
+
+static int cmd_battery(int argc, char **argv)
+{
+	if (argc >= 1 && !strcmp(argv[0], "calibration"))
+		return cmd_bool_attr("battery_calibration", argc - 1, argv + 1);
+	return cmd_bool_attr("battery_limiter", argc, argv);
+}
+
 int main(int argc, char **argv)
 {
 	int i = 1;
@@ -258,6 +362,16 @@ int main(int argc, char **argv)
 		return cmd_mode(argc - i, argv + i);
 	if (!strcmp(cmd, "fan"))
 		return cmd_fan(argc - i, argv + i);
+	if (!strcmp(cmd, "battery"))
+		return cmd_battery(argc - i, argv + i);
+	if (!strcmp(cmd, "usb"))
+		return cmd_bool_attr("usb_charging", argc - i, argv + i);
+	if (!strcmp(cmd, "lcd"))
+		return cmd_bool_attr("lcd_override", argc - i, argv + i);
+	if (!strcmp(cmd, "kb-timeout"))
+		return cmd_bool_attr("backlight_timeout", argc - i, argv + i);
+	if (!strcmp(cmd, "boot-sound"))
+		return cmd_bool_attr("boot_animation_sound", argc - i, argv + i);
 
 	fprintf(stderr, "perfectsense: unknown command '%s'\n", cmd);
 	usage(stderr);

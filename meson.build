@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.4',
+  version: '0.0.5',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -45,5 +45,5 @@ summary({
   'version': meson.project_version(),
   'cli': cli_exe.name(),
   'lib': libperfectsense.name(),
-  'note': 'Phase 4 — status/mode/fan over sysfs',
+  'note': 'Phase 5 — battery/misc attrs + CLI',
 }, section: 'PerfectSense')

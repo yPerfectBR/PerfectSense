@@ -24,6 +24,12 @@ struct ps_status {
 	unsigned fan_target_cpu;
 	unsigned fan_target_gpu;
 	int fan_auto; /* 1 when target is 0,0 */
+	int battery_limiter; /* 0/1, or -1 if unavailable */
+	int battery_calibration;
+	int usb_charging; /* 0/10/20/30, or -1 */
+	int lcd_override; /* 0/1, or -1 */
+	int backlight_timeout; /* 0/1, or -1 */
+	int boot_animation_sound; /* 0/1, or -1 */
 };
 
 /* 0 = module sysfs present */
@@ -41,6 +47,10 @@ int ps_fan_duty_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_target_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_set(unsigned cpu, unsigned gpu);
 int ps_fan_set_auto(void);
+
+/* Phase 5 attrs — integer get/set over sysfs */
+int ps_attr_get_int(const char *name, int *value);
+int ps_attr_set_int(const char *name, int value);
 
 const char *ps_strerror(int err);
 

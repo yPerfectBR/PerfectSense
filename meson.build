@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.10',
+  version: '0.0.11',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -69,6 +69,16 @@ install_data(
 
 install_man('man/perfectsense.1', 'man/perfectsensed.8')
 
+install_data(
+  'packaging/modprobe.d/perfectsense.conf',
+  install_dir: get_option('prefix') / 'lib' / 'modprobe.d',
+)
+
+install_data(
+  'packaging/modules-load.d/perfectsense.conf',
+  install_dir: get_option('prefix') / 'lib' / 'modules-load.d',
+)
+
 pkg = import('pkgconfig')
 pkg.generate(
   libperfectsense,
@@ -81,5 +91,5 @@ summary({
   'cli': cli_exe.name(),
   'daemon': daemon_exe.name(),
   'lib': libperfectsense.name(),
-  'note': 'Phase 10 — hotkeys + packaging polish',
+  'note': 'hwmon sensors + daily-driver gaps',
 }, section: 'PerfectSense')

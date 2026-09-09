@@ -147,6 +147,9 @@ int ps_events_register(struct device *parent);
 void ps_events_unregister(void);
 void ps_events_inject(const char *event, u8 key_num);
 
+int ps_hwmon_register(struct device *parent);
+void ps_hwmon_unregister(void);
+
 bool ps_dmi_supported(void);
 
 #endif /* PERFECTSENSE_H */

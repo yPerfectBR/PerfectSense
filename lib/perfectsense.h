@@ -34,6 +34,11 @@ struct ps_status {
 	int boot_animation_sound;
 	char rgb[64]; /* per_zone_mode string or empty */
 	char logo[32]; /* color string or empty */
+	char rgb_effect[64]; /* four_zone_mode or empty */
+	int temp_cpu; /* °C, or -1 */
+	int temp_gpu;
+	int fan_rpm_cpu; /* RPM, or -1 */
+	int fan_rpm_gpu;
 };
 
 int ps_available(void);
@@ -57,10 +62,13 @@ int ps_attr_set_int(const char *name, int value);
 int ps_rgb_get(char *buf, size_t buflen);
 int ps_rgb_set(const char *per_zone_csv);
 int ps_rgb_off(void);
+int ps_rgb_effect_get(char *buf, size_t buflen);
+int ps_rgb_effect_set(const char *effect_csv);
 int ps_logo_get(char *buf, size_t buflen);
 int ps_logo_set(const char *color_csv);
 int ps_logo_off(void);
 int ps_lighting_reset(void);
+int ps_event_inject(const char *name);
 
 /* Phase 8 — CPU power (userspace sysfs) */
 struct ps_cpu_power {
@@ -106,6 +114,7 @@ struct ps_fan_aggressor_config {
 };
 
 int ps_temps_read(int *cpu_c, int *gpu_c);
+int ps_fan_rpm_get(int *cpu_rpm, int *gpu_rpm);
 void ps_fan_aggressor_defaults(struct ps_fan_aggressor_config *cfg);
 int ps_fan_aggressor_config_load(struct ps_fan_aggressor_config *cfg);
 int ps_fan_aggressor_config_save(const struct ps_fan_aggressor_config *cfg);

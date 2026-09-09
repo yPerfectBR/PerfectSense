@@ -7,6 +7,8 @@
  * Phase 10: sd-device watches platform uevents → Hotkey D-Bus signal.
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "perfectsense.h"
 #include "fan_aggressor_runtime.h"
 
@@ -17,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <systemd/sd-bus.h>
@@ -60,10 +63,19 @@ static int emit_hotkey(const char *event, unsigned key)
 
 static void handle_mode_key(void)
 {
+	static struct timespec last;
+	struct timespec now;
 	char cur[64];
 	size_t i, start = 0;
 	size_t n = sizeof(g_mode_cycle) / sizeof(g_mode_cycle[0]);
 	int r;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	if (last.tv_sec &&
+	    ((now.tv_sec - last.tv_sec) * 1000L +
+	     (now.tv_nsec - last.tv_nsec) / 1000000L) < 300)
+		return;
+	last = now;
 
 	if (ps_mode_get(cur, sizeof(cur)) < 0)
 		snprintf(cur, sizeof(cur), "balanced");
@@ -98,9 +110,18 @@ static void handle_mode_key(void)
 
 static void handle_turbo_key(void)
 {
+	static struct timespec last;
+	struct timespec now;
 	struct ps_status st;
 	struct ps_cpu_power cpu;
 	int r;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	if (last.tv_sec &&
+	    ((now.tv_sec - last.tv_sec) * 1000L +
+	     (now.tv_nsec - last.tv_nsec) / 1000000L) < 300)
+		return;
+	last = now;
 
 	memset(&st, 0, sizeof(st));
 	memset(&cpu, 0, sizeof(cpu));

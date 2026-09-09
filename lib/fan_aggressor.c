@@ -2,6 +2,9 @@
 /*
  * FanAggressor — offset mode helpers (config + duty math).
  * Timer lives in perfectsensed; this file is shared with the CLI.
+ *
+ * Load order: defaults → /etc/perfectsense/… → /run/perfectsense/… (override).
+ * Save writes /run always and /etc when writable (persist across reboot).
  */
 
 #include "perfectsense.h"
@@ -11,8 +14,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
-#define PS_FA_CONF_PATH "/run/perfectsense/fan-aggressor.conf"
+#define PS_FA_ETC_PATH "/etc/perfectsense/fan-aggressor.conf"
+#define PS_FA_RUN_PATH "/run/perfectsense/fan-aggressor.conf"
 
 void ps_fan_aggressor_defaults(struct ps_fan_aggressor_config *cfg)
 {
@@ -30,27 +35,43 @@ void ps_fan_aggressor_defaults(struct ps_fan_aggressor_config *cfg)
 	cfg->floor_gpu = 55;
 }
 
-static int ensure_run_dir(void)
+static int ensure_dir(const char *path, mode_t mode)
 {
 	struct stat st;
 
-	if (stat("/run/perfectsense", &st) == 0)
+	if (stat(path, &st) == 0)
 		return S_ISDIR(st.st_mode) ? 0 : -ENOTDIR;
-	if (mkdir("/run/perfectsense", 0755) != 0 && errno != EEXIST)
+	if (mkdir(path, mode) != 0 && errno != EEXIST)
 		return -errno;
 	return 0;
 }
 
-int ps_fan_aggressor_config_load(struct ps_fan_aggressor_config *cfg)
+static void clamp_cfg(struct ps_fan_aggressor_config *cfg)
+{
+	if (cfg->engage_c < 50 || cfg->engage_c > 105)
+		cfg->engage_c = 90;
+	if (cfg->hysteresis_c < 0 || cfg->hysteresis_c > 20)
+		cfg->hysteresis_c = 3;
+	if (cfg->hold_sec < 0)
+		cfg->hold_sec = 0;
+	if (cfg->interval_ms < 500)
+		cfg->interval_ms = 500;
+	if (cfg->offset_cpu < 0)
+		cfg->offset_cpu = 0;
+	if (cfg->offset_gpu < 0)
+		cfg->offset_gpu = 0;
+	if (cfg->floor_cpu > 100)
+		cfg->floor_cpu = 100;
+	if (cfg->floor_gpu > 100)
+		cfg->floor_gpu = 100;
+}
+
+static int load_file(const char *path, struct ps_fan_aggressor_config *cfg)
 {
 	FILE *f;
 	char line[128];
 
-	if (!cfg)
-		return -EINVAL;
-	ps_fan_aggressor_defaults(cfg);
-
-	f = fopen(PS_FA_CONF_PATH, "r");
+	f = fopen(path, "r");
 	if (!f)
 		return (errno == ENOENT) ? 0 : -errno;
 
@@ -86,37 +107,31 @@ int ps_fan_aggressor_config_load(struct ps_fan_aggressor_config *cfg)
 			cfg->floor_gpu = atoi(eq);
 	}
 	fclose(f);
-
-	if (cfg->engage_c < 50 || cfg->engage_c > 105)
-		cfg->engage_c = 90;
-	if (cfg->hysteresis_c < 0 || cfg->hysteresis_c > 20)
-		cfg->hysteresis_c = 3;
-	if (cfg->hold_sec < 0)
-		cfg->hold_sec = 0;
-	if (cfg->interval_ms < 500)
-		cfg->interval_ms = 500;
-	if (cfg->offset_cpu < 0)
-		cfg->offset_cpu = 0;
-	if (cfg->offset_gpu < 0)
-		cfg->offset_gpu = 0;
-	if (cfg->floor_cpu > 100)
-		cfg->floor_cpu = 100;
-	if (cfg->floor_gpu > 100)
-		cfg->floor_gpu = 100;
 	return 0;
 }
 
-int ps_fan_aggressor_config_save(const struct ps_fan_aggressor_config *cfg)
+int ps_fan_aggressor_config_load(struct ps_fan_aggressor_config *cfg)
 {
-	FILE *f;
 	int err;
 
 	if (!cfg)
 		return -EINVAL;
-	err = ensure_run_dir();
+	ps_fan_aggressor_defaults(cfg);
+	err = load_file(PS_FA_ETC_PATH, cfg);
 	if (err)
 		return err;
-	f = fopen(PS_FA_CONF_PATH, "w");
+	err = load_file(PS_FA_RUN_PATH, cfg);
+	if (err)
+		return err;
+	clamp_cfg(cfg);
+	return 0;
+}
+
+static int write_file(const char *path, const struct ps_fan_aggressor_config *cfg)
+{
+	FILE *f;
+
+	f = fopen(path, "w");
 	if (!f)
 		return -errno;
 	fprintf(f,
@@ -134,6 +149,25 @@ int ps_fan_aggressor_config_save(const struct ps_fan_aggressor_config *cfg)
 		cfg->offset_gpu, cfg->floor_cpu, cfg->floor_gpu);
 	if (fclose(f) != 0)
 		return -errno;
+	return 0;
+}
+
+int ps_fan_aggressor_config_save(const struct ps_fan_aggressor_config *cfg)
+{
+	int err;
+
+	if (!cfg)
+		return -EINVAL;
+	err = ensure_dir("/run/perfectsense", 0755);
+	if (err)
+		return err;
+	err = write_file(PS_FA_RUN_PATH, cfg);
+	if (err)
+		return err;
+
+	/* Best-effort persist for reboot (ignore permission errors). */
+	if (ensure_dir("/etc/perfectsense", 0755) == 0)
+		(void)write_file(PS_FA_ETC_PATH, cfg);
 	return 0;
 }
 

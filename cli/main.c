@@ -19,9 +19,10 @@ static void usage(FILE *out)
 		"\n"
 		"Commands:\n"
 		"  status                      Full hardware status\n"
+		"  temps                       CPU/GPU temps (°C)\n"
 		"  mode get|set <name>         Thermal profile\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
-		"  fan aggressor on|off|status\n"
+		"  fan aggressor on|off|status|set key=val…\n"
 		"  battery get|on|off          80% charge limiter\n"
 		"  battery calibration get|on|off\n"
 		"  usb get|set <0|10|20|30>    USB charging while off (minutes)\n"
@@ -29,8 +30,10 @@ static void usage(FILE *out)
 		"  kb-timeout get|set <0|1>    KB backlight 30s timeout\n"
 		"  boot-sound get|set <0|1>    Boot animation sound\n"
 		"  rgb get|set <z1..z4> [bri]|off\n"
+		"  rgb effect get|set <mode,speed,bri,dir,r,g,b>\n"
 		"  logo get|set <RRGGBB> [bri] [en]|off\n"
 		"  lights reset                Lighting controller reset\n"
+		"  event inject <name>         Synthetic hotkey (turbo|mode|ac-*)\n"
 		"  cpu status                  Governor/EPP/turbo/RAPL\n"
 		"  cpu preset <name> [--sync-profile]\n"
 		"  cpu restore                 Revert to baseline snapshot\n"
@@ -66,6 +69,7 @@ static const char *json_int_or_null(int v, char *tmp, size_t n)
 static int emit_status_json(const struct ps_status *s)
 {
 	char b1[16], b2[16], b3[16], b4[16], b5[16], b6[16];
+	char r1[16], r2[16], t1[16], t2[16];
 
 	printf(
 		"{\"api_version\":%u,"
@@ -76,7 +80,9 @@ static int emit_status_json(const struct ps_status *s)
 		"\"fan\":{"
 		"\"duty\":{\"cpu\":%u,\"gpu\":%u},"
 		"\"target\":{\"cpu\":%u,\"gpu\":%u},"
-		"\"auto\":%s},"
+		"\"auto\":%s,"
+		"\"rpm\":{\"cpu\":%s,\"gpu\":%s}},"
+		"\"temps\":{\"cpu\":%s,\"gpu\":%s},"
 		"\"battery_limiter\":%s,"
 		"\"battery_calibration\":%s,"
 		"\"usb_charging\":%s,"
@@ -84,19 +90,24 @@ static int emit_status_json(const struct ps_status *s)
 		"\"backlight_timeout\":%s,"
 		"\"boot_animation_sound\":%s,"
 		"\"rgb\":\"%s\","
+		"\"rgb_effect\":\"%s\","
 		"\"logo\":\"%s\""
 		"}\n",
 		s->api_version, s->thermal_profile, s->thermal_profile_raw,
 		s->ac_online ? "true" : "false", s->platform_profile,
 		s->fan_duty_cpu, s->fan_duty_gpu, s->fan_target_cpu,
 		s->fan_target_gpu, s->fan_auto ? "true" : "false",
+		json_int_or_null(s->fan_rpm_cpu, r1, sizeof(r1)),
+		json_int_or_null(s->fan_rpm_gpu, r2, sizeof(r2)),
+		json_int_or_null(s->temp_cpu, t1, sizeof(t1)),
+		json_int_or_null(s->temp_gpu, t2, sizeof(t2)),
 		json_int_or_null(s->battery_limiter, b1, sizeof(b1)),
 		json_int_or_null(s->battery_calibration, b2, sizeof(b2)),
 		json_int_or_null(s->usb_charging, b3, sizeof(b3)),
 		json_int_or_null(s->lcd_override, b4, sizeof(b4)),
 		json_int_or_null(s->backlight_timeout, b5, sizeof(b5)),
 		json_int_or_null(s->boot_animation_sound, b6, sizeof(b6)),
-		s->rgb, s->logo);
+		s->rgb, s->rgb_effect, s->logo);
 	return 0;
 }
 
@@ -110,6 +121,10 @@ static int emit_status_text(const struct ps_status *s)
 	printf("fan_duty: %u,%u\n", s->fan_duty_cpu, s->fan_duty_gpu);
 	printf("fan_target: %u,%u%s\n", s->fan_target_cpu, s->fan_target_gpu,
 	       s->fan_auto ? " (auto)" : "");
+	if (s->fan_rpm_cpu >= 0 || s->fan_rpm_gpu >= 0)
+		printf("fan_rpm: %d,%d\n", s->fan_rpm_cpu, s->fan_rpm_gpu);
+	if (s->temp_cpu >= 0 || s->temp_gpu >= 0)
+		printf("temps_c: %d,%d\n", s->temp_cpu, s->temp_gpu);
 	printf("battery_limiter: %d\n", s->battery_limiter);
 	printf("battery_calibration: %d\n", s->battery_calibration);
 	printf("usb_charging: %d\n", s->usb_charging);
@@ -117,6 +132,8 @@ static int emit_status_text(const struct ps_status *s)
 	printf("backlight_timeout: %d\n", s->backlight_timeout);
 	printf("boot_animation_sound: %d\n", s->boot_animation_sound);
 	printf("rgb: %s\n", s->rgb[0] ? s->rgb : "(unavailable)");
+	printf("rgb_effect: %s\n",
+	       s->rgb_effect[0] ? s->rgb_effect : "(unavailable)");
 	printf("logo: %s\n", s->logo[0] ? s->logo : "(unavailable)");
 	return 0;
 }
@@ -192,7 +209,7 @@ static int cmd_fan(int argc, char **argv)
 		int cpu_c = 0, gpu_c = 0;
 
 		if (argc < 2) {
-			fputs("perfectsense: fan aggressor on|off|status\n",
+			fputs("perfectsense: fan aggressor on|off|status|set …\n",
 			      stderr);
 			return 1;
 		}
@@ -203,26 +220,79 @@ static int cmd_fan(int argc, char **argv)
 				printf(
 					"{\"enabled\":%s,\"engage_c\":%d,"
 					"\"hysteresis_c\":%d,\"hold_sec\":%d,"
+					"\"interval_ms\":%d,"
 					"\"offset_cpu\":%d,\"offset_gpu\":%d,"
 					"\"floor_cpu\":%d,\"floor_gpu\":%d,"
 					"\"temp_cpu\":%d,\"temp_gpu\":%d}\n",
 					cfg.enabled ? "true" : "false",
 					cfg.engage_c, cfg.hysteresis_c,
-					cfg.hold_sec, cfg.offset_cpu,
-					cfg.offset_gpu, cfg.floor_cpu,
-					cfg.floor_gpu, cpu_c, gpu_c);
+					cfg.hold_sec, cfg.interval_ms,
+					cfg.offset_cpu, cfg.offset_gpu,
+					cfg.floor_cpu, cfg.floor_gpu, cpu_c,
+					gpu_c);
 			} else {
 				printf("fan aggressor: %s\n",
 				       cfg.enabled ? "on" : "off");
-				printf("engage_c: %d (hyst %d, hold %ds)\n",
+				printf("engage_c: %d (hyst %d, hold %ds, interval %dms)\n",
 				       cfg.engage_c, cfg.hysteresis_c,
-				       cfg.hold_sec);
+				       cfg.hold_sec, cfg.interval_ms);
 				printf("offset: %d,%d  floor: %d,%d\n",
 				       cfg.offset_cpu, cfg.offset_gpu,
 				       cfg.floor_cpu, cfg.floor_gpu);
 				printf("temp: cpu=%d gpu=%d\n", cpu_c, gpu_c);
 				puts("note: timer runs in perfectsensed when enabled");
 			}
+			return 0;
+		}
+		if (!strcmp(argv[1], "set")) {
+			int i;
+
+			for (i = 2; i < argc; i++) {
+				char *eq = strchr(argv[i], '=');
+				char key[32];
+				int val;
+
+				if (!eq) {
+					fputs("perfectsense: expected key=value\n",
+					      stderr);
+					return 1;
+				}
+				*eq = '\0';
+				snprintf(key, sizeof(key), "%s", argv[i]);
+				val = atoi(eq + 1);
+				*eq = '=';
+				if (!strcmp(key, "engage_c"))
+					cfg.engage_c = val;
+				else if (!strcmp(key, "hysteresis_c"))
+					cfg.hysteresis_c = val;
+				else if (!strcmp(key, "hold_sec"))
+					cfg.hold_sec = val;
+				else if (!strcmp(key, "interval_ms"))
+					cfg.interval_ms = val;
+				else if (!strcmp(key, "offset_cpu"))
+					cfg.offset_cpu = val;
+				else if (!strcmp(key, "offset_gpu"))
+					cfg.offset_gpu = val;
+				else if (!strcmp(key, "floor_cpu"))
+					cfg.floor_cpu = val;
+				else if (!strcmp(key, "floor_gpu"))
+					cfg.floor_gpu = val;
+				else if (!strcmp(key, "enabled"))
+					cfg.enabled = val ? 1 : 0;
+				else {
+					fprintf(stderr,
+						"perfectsense: unknown key '%s'\n",
+						key);
+					return 1;
+				}
+			}
+			err = ps_fan_aggressor_config_save(&cfg);
+			if (err)
+				return fail(err);
+			if (g_json)
+				puts("{\"ok\":true}");
+			else
+				puts("fan aggressor config saved");
 			return 0;
 		}
 		if (!strcmp(argv[1], "on") || !strcmp(argv[1], "off")) {
@@ -250,7 +320,8 @@ static int cmd_fan(int argc, char **argv)
 				       cfg.enabled ? "on" : "off");
 			return 0;
 		}
-		fputs("perfectsense: fan aggressor on|off|status\n", stderr);
+		fputs("perfectsense: fan aggressor on|off|status|set …\n",
+		      stderr);
 		return 1;
 	}
 
@@ -261,22 +332,27 @@ static int cmd_fan(int argc, char **argv)
 		{
 			unsigned tc, tg;
 			int auto_mode;
+			int rc = -1, rg = -1;
 
 			err = ps_fan_target_get(&tc, &tg);
 			if (err)
 				return fail(err);
 			auto_mode = (tc == 0 && tg == 0);
+			(void)ps_fan_rpm_get(&rc, &rg);
 			if (g_json) {
 				printf(
 					"{\"duty\":{\"cpu\":%u,\"gpu\":%u},"
 					"\"target\":{\"cpu\":%u,\"gpu\":%u},"
-					"\"auto\":%s}\n",
+					"\"auto\":%s,"
+					"\"rpm\":{\"cpu\":%d,\"gpu\":%d}}\n",
 					cpu, gpu, tc, tg,
-					auto_mode ? "true" : "false");
+					auto_mode ? "true" : "false", rc, rg);
 			} else {
 				printf("duty: %u,%u\n", cpu, gpu);
 				printf("target: %u,%u%s\n", tc, tg,
 				       auto_mode ? " (auto)" : "");
+				if (rc >= 0 || rg >= 0)
+					printf("rpm: %d,%d\n", rc, rg);
 			}
 		}
 		return 0;
@@ -412,6 +488,40 @@ static int cmd_rgb(int argc, char **argv)
 		usage(stderr);
 		return 1;
 	}
+	if (!strcmp(argv[0], "effect")) {
+		if (argc < 2) {
+			fputs("perfectsense: rgb effect get|set …\n", stderr);
+			return 1;
+		}
+		if (!strcmp(argv[1], "get")) {
+			err = ps_rgb_effect_get(buf, sizeof(buf));
+			if (err)
+				return fail(err);
+			if (g_json)
+				printf("{\"rgb_effect\":\"%s\"}\n", buf);
+			else
+				puts(buf);
+			return 0;
+		}
+		if (!strcmp(argv[1], "set")) {
+			if (argc < 3) {
+				fputs("perfectsense: rgb effect set <csv>\n",
+				      stderr);
+				return 1;
+			}
+			err = ps_rgb_effect_set(argv[2]);
+			if (err)
+				return fail(err);
+			if (g_json)
+				printf("{\"ok\":true,\"rgb_effect\":\"%s\"}\n",
+				       argv[2]);
+			else
+				puts(argv[2]);
+			return 0;
+		}
+		fputs("perfectsense: rgb effect get|set …\n", stderr);
+		return 1;
+	}
 	if (!strcmp(argv[0], "get")) {
 		err = ps_rgb_get(buf, sizeof(buf));
 		if (err)
@@ -513,6 +623,39 @@ static int cmd_logo(int argc, char **argv)
 	}
 	fprintf(stderr, "perfectsense: unknown logo subcommand '%s'\n", argv[0]);
 	return 1;
+}
+
+static int cmd_temps(void)
+{
+	int cpu_c = 0, gpu_c = 0;
+	int err = ps_temps_read(&cpu_c, &gpu_c);
+
+	if (err)
+		return fail(err);
+	if (g_json)
+		printf("{\"temp_cpu\":%d,\"temp_gpu\":%d}\n", cpu_c, gpu_c);
+	else
+		printf("temp_c: %d,%d\n", cpu_c, gpu_c);
+	return 0;
+}
+
+static int cmd_event(int argc, char **argv)
+{
+	int err;
+
+	if (argc < 2 || strcmp(argv[0], "inject") != 0) {
+		fputs("perfectsense: event inject <turbo|mode|ac-online|ac-offline>\n",
+		      stderr);
+		return 1;
+	}
+	err = ps_event_inject(argv[1]);
+	if (err)
+		return fail(err);
+	if (g_json)
+		printf("{\"ok\":true,\"event\":\"%s\"}\n", argv[1]);
+	else
+		printf("injected event: %s\n", argv[1]);
+	return 0;
 }
 
 static int cmd_lights(int argc, char **argv)
@@ -742,6 +885,8 @@ int main(int argc, char **argv)
 	}
 	if (!strcmp(cmd, "status"))
 		return cmd_status();
+	if (!strcmp(cmd, "temps"))
+		return cmd_temps();
 	if (!strcmp(cmd, "mode"))
 		return cmd_mode(argc - i, argv + i);
 	if (!strcmp(cmd, "fan"))
@@ -762,6 +907,8 @@ int main(int argc, char **argv)
 		return cmd_logo(argc - i, argv + i);
 	if (!strcmp(cmd, "lights"))
 		return cmd_lights(argc - i, argv + i);
+	if (!strcmp(cmd, "event"))
+		return cmd_event(argc - i, argv + i);
 	if (!strcmp(cmd, "cpu"))
 		return cmd_cpu(argc - i, argv + i);
 

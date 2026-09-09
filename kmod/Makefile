@@ -13,7 +13,8 @@ perfectsense-y := \
 	src/fan.o \
 	src/attrs.o \
 	src/rgb.o \
-	src/events.o
+	src/events.o \
+	src/hwmon.o
 
 ccflags-y += -I$(src)/include
 

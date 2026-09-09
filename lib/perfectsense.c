@@ -81,6 +81,7 @@ static void path_join(char *out, size_t outlen, const char *root,
 int ps_attr_get_int(const char *name, int *value);
 int ps_attr_set_int(const char *name, int value);
 int ps_rgb_get(char *buf, size_t buflen);
+int ps_rgb_effect_get(char *buf, size_t buflen);
 int ps_logo_get(char *buf, size_t buflen);
 
 const char *ps_sysfs_root(void)
@@ -234,8 +235,26 @@ int ps_status_read(struct ps_status *out)
 
 	out->rgb[0] = '\0';
 	out->logo[0] = '\0';
+	out->rgb_effect[0] = '\0';
+	out->temp_cpu = -1;
+	out->temp_gpu = -1;
+	out->fan_rpm_cpu = -1;
+	out->fan_rpm_gpu = -1;
 	(void)ps_rgb_get(out->rgb, sizeof(out->rgb));
+	(void)ps_rgb_effect_get(out->rgb_effect, sizeof(out->rgb_effect));
 	(void)ps_logo_get(out->logo, sizeof(out->logo));
+	{
+		int tc = -1, tg = -1, rc = -1, rg = -1;
+
+		if (ps_temps_read(&tc, &tg) == 0) {
+			out->temp_cpu = tc;
+			out->temp_gpu = tg;
+		}
+		if (ps_fan_rpm_get(&rc, &rg) == 0) {
+			out->fan_rpm_cpu = rc;
+			out->fan_rpm_gpu = rg;
+		}
+	}
 
 	return 0;
 }
@@ -411,6 +430,26 @@ int ps_rgb_off(void)
 	return ps_rgb_set("000000,000000,000000,000000,0");
 }
 
+int ps_rgb_effect_get(char *buf, size_t buflen)
+{
+	char path[512];
+
+	if (!buf || buflen == 0)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_kb_sysfs_root(), "four_zone_mode");
+	return read_trimmed(path, buf, buflen);
+}
+
+int ps_rgb_effect_set(const char *effect_csv)
+{
+	char path[512];
+
+	if (!effect_csv)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_kb_sysfs_root(), "four_zone_mode");
+	return write_text(path, effect_csv);
+}
+
 int ps_logo_get(char *buf, size_t buflen)
 {
 	char path[512];
@@ -442,6 +481,16 @@ int ps_lighting_reset(void)
 
 	path_join(path, sizeof(path), ps_sysfs_root(), "lighting_reset");
 	return write_text(path, "1");
+}
+
+int ps_event_inject(const char *name)
+{
+	char path[512];
+
+	if (!name || !*name)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_sysfs_root(), "inject_event");
+	return write_text(path, name);
 }
 
 const char *ps_strerror(int err)

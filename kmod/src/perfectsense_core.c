@@ -66,6 +66,12 @@ static int __init perfectsense_init(void)
 		goto err_pp;
 	}
 
+	err = ps_hwmon_register(&ps_pdev->dev);
+	if (err) {
+		pr_err("hwmon register failed: %d\n", err);
+		goto err_events;
+	}
+
 	/* Start from firmware auto unless userspace overrides */
 	ps_fan_set_auto();
 
@@ -83,6 +89,8 @@ static int __init perfectsense_init(void)
 	}
 	return 0;
 
+err_events:
+	ps_events_unregister();
 err_pp:
 	ps_platform_profile_unregister();
 err_sysfs:
@@ -97,6 +105,7 @@ static void __exit perfectsense_exit(void)
 {
 	/* Tear down userspace-facing interfaces before event/input state. */
 	ps_fan_set_auto();
+	ps_hwmon_unregister();
 	if (ps_pdev) {
 		ps_sysfs_unregister(&ps_pdev->dev);
 		ps_events_unregister();
@@ -116,6 +125,6 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.0.10");
+MODULE_VERSION("0.0.11");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");
 MODULE_ALIAS("wmi:676AA15E-6A47-4D9F-A2CC-1E6D18D14026");

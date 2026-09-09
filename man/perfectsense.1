@@ -31,6 +31,9 @@ Emit machine-readable JSON for commands that support it (notably
 .B status
 Print thermal profile, AC, fans, battery/misc, RGB/logo summary.
 .TP
+.B temps
+Print CPU/GPU temperatures in °C (from PerfectSense hwmon).
+.TP
 .BI "mode get" \fR "|" " mode set " name
 Get or set the firmware thermal profile.
 Names:
@@ -47,10 +50,23 @@ Aliases:
 .BI "fan get" \fR "|" " fan set " "cpu gpu" \fR "|" " fan auto"
 Read live duty or set target duties (percent), or return fans to firmware auto.
 .TP
-.BI "fan aggressor on" \fR "|" " off" \fR "|" " status"
-Enable/disable FanAggressor offset mode via the shared runtime config
-(consumed by
-.BR perfectsensed ).
+.BI "fan aggressor on" \fR "|" " off" \fR "|" " status" \fR "|" " set " key=val…
+Enable/disable FanAggressor offset mode or edit config
+.RB ( engage_c ,
+offsets, floors, …). Persists under
+.I /etc/perfectsense/
+when writable.
+.TP
+.BI "rgb effect get" \fR "|" " set " csv
+Four-zone keyboard effect mode (sysfs
+.BR four_zone_mode ).
+.TP
+.BI "event inject " name
+Synthetic hotkey/AC event for testing
+.RB ( turbo ,
+.BR mode ,
+.BR ac\-online ,
+.BR ac\-offline ).
 .TP
 .B battery \fR...
 80% charge limiter and calibration helpers.

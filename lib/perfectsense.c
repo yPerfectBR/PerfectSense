@@ -80,6 +80,8 @@ static void path_join(char *out, size_t outlen, const char *root,
 /* Forward decls used by ps_status_read */
 int ps_attr_get_int(const char *name, int *value);
 int ps_attr_set_int(const char *name, int value);
+int ps_rgb_get(char *buf, size_t buflen);
+int ps_logo_get(char *buf, size_t buflen);
 
 const char *ps_sysfs_root(void)
 {
@@ -91,6 +93,30 @@ const char *ps_sysfs_root(void)
 		return envbuf;
 	}
 	return PS_SYSFS_DEFAULT;
+}
+
+const char *ps_kb_sysfs_root(void)
+{
+	static char envbuf[512];
+	const char *env = getenv("PERFECTSENSE_KB_SYSFS");
+
+	if (env && env[0]) {
+		snprintf(envbuf, sizeof(envbuf), "%s", env);
+		return envbuf;
+	}
+	return PS_KB_SYSFS_DEFAULT;
+}
+
+const char *ps_logo_sysfs_root(void)
+{
+	static char envbuf[512];
+	const char *env = getenv("PERFECTSENSE_LOGO_SYSFS");
+
+	if (env && env[0]) {
+		snprintf(envbuf, sizeof(envbuf), "%s", env);
+		return envbuf;
+	}
+	return PS_LOGO_SYSFS_DEFAULT;
 }
 
 int ps_available(void)
@@ -205,6 +231,11 @@ int ps_status_read(struct ps_status *out)
 	(void)ps_attr_get_int("backlight_timeout", &out->backlight_timeout);
 	(void)ps_attr_get_int("boot_animation_sound",
 			      &out->boot_animation_sound);
+
+	out->rgb[0] = '\0';
+	out->logo[0] = '\0';
+	(void)ps_rgb_get(out->rgb, sizeof(out->rgb));
+	(void)ps_logo_get(out->logo, sizeof(out->logo));
 
 	return 0;
 }
@@ -353,6 +384,64 @@ int ps_attr_set_int(const char *name, int value)
 	path_join(path, sizeof(path), ps_sysfs_root(), name);
 	snprintf(buf, sizeof(buf), "%d", value);
 	return write_text(path, buf);
+}
+
+int ps_rgb_get(char *buf, size_t buflen)
+{
+	char path[512];
+
+	if (!buf || buflen == 0)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_kb_sysfs_root(), "per_zone_mode");
+	return read_trimmed(path, buf, buflen);
+}
+
+int ps_rgb_set(const char *per_zone_csv)
+{
+	char path[512];
+
+	if (!per_zone_csv)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_kb_sysfs_root(), "per_zone_mode");
+	return write_text(path, per_zone_csv);
+}
+
+int ps_rgb_off(void)
+{
+	return ps_rgb_set("000000,000000,000000,000000,0");
+}
+
+int ps_logo_get(char *buf, size_t buflen)
+{
+	char path[512];
+
+	if (!buf || buflen == 0)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_logo_sysfs_root(), "color");
+	return read_trimmed(path, buf, buflen);
+}
+
+int ps_logo_set(const char *color_csv)
+{
+	char path[512];
+
+	if (!color_csv)
+		return -EINVAL;
+	path_join(path, sizeof(path), ps_logo_sysfs_root(), "color");
+	return write_text(path, color_csv);
+}
+
+int ps_logo_off(void)
+{
+	return ps_logo_set("000000,0,0");
+}
+
+int ps_lighting_reset(void)
+{
+	char path[512];
+
+	path_join(path, sizeof(path), ps_sysfs_root(), "lighting_reset");
+	return write_text(path, "1");
 }
 
 const char *ps_strerror(int err)

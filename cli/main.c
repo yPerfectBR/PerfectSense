@@ -18,7 +18,7 @@ static void usage(FILE *out)
 		"Usage: perfectsense [--json] <command> [args]\n"
 		"\n"
 		"Commands:\n"
-		"  status                      Profile, AC, fans, Phase 5 attrs\n"
+		"  status                      Full hardware status\n"
 		"  mode get|set <name>         Thermal profile\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
 		"  battery get|on|off          80% charge limiter\n"
@@ -27,13 +27,16 @@ static void usage(FILE *out)
 		"  lcd get|set <0|1>           LCD override (may be -1 unsupported)\n"
 		"  kb-timeout get|set <0|1>    KB backlight 30s timeout\n"
 		"  boot-sound get|set <0|1>    Boot animation sound\n"
+		"  rgb get|set <z1..z4> [bri]|off\n"
+		"  logo get|set <RRGGBB> [bri] [en]|off\n"
+		"  lights reset                Lighting controller reset\n"
 		"  help\n"
 		"\n"
 		"Mode names: low-power | quiet | balanced |\n"
 		"            balanced-performance | performance\n"
 		"Aliases:    eco→low-power, turbo→performance, bp→balanced-performance\n"
 		"\n"
-		"Env: PERFECTSENSE_SYSFS  override sysfs root\n",
+		"Env: PERFECTSENSE_SYSFS / PERFECTSENSE_KB_SYSFS / PERFECTSENSE_LOGO_SYSFS\n",
 		out);
 }
 
@@ -72,7 +75,9 @@ static int emit_status_json(const struct ps_status *s)
 		"\"usb_charging\":%s,"
 		"\"lcd_override\":%s,"
 		"\"backlight_timeout\":%s,"
-		"\"boot_animation_sound\":%s"
+		"\"boot_animation_sound\":%s,"
+		"\"rgb\":\"%s\","
+		"\"logo\":\"%s\""
 		"}\n",
 		s->api_version, s->thermal_profile, s->thermal_profile_raw,
 		s->ac_online ? "true" : "false", s->platform_profile,
@@ -83,7 +88,8 @@ static int emit_status_json(const struct ps_status *s)
 		json_int_or_null(s->usb_charging, b3, sizeof(b3)),
 		json_int_or_null(s->lcd_override, b4, sizeof(b4)),
 		json_int_or_null(s->backlight_timeout, b5, sizeof(b5)),
-		json_int_or_null(s->boot_animation_sound, b6, sizeof(b6)));
+		json_int_or_null(s->boot_animation_sound, b6, sizeof(b6)),
+		s->rgb, s->logo);
 	return 0;
 }
 
@@ -103,6 +109,8 @@ static int emit_status_text(const struct ps_status *s)
 	printf("lcd_override: %d\n", s->lcd_override);
 	printf("backlight_timeout: %d\n", s->backlight_timeout);
 	printf("boot_animation_sound: %d\n", s->boot_animation_sound);
+	printf("rgb: %s\n", s->rgb[0] ? s->rgb : "(unavailable)");
+	printf("logo: %s\n", s->logo[0] ? s->logo : "(unavailable)");
 	return 0;
 }
 
@@ -321,6 +329,136 @@ static int cmd_battery(int argc, char **argv)
 	return cmd_bool_attr("battery_limiter", argc, argv);
 }
 
+static int cmd_rgb(int argc, char **argv)
+{
+	char buf[64];
+	int err;
+
+	if (argc < 1) {
+		usage(stderr);
+		return 1;
+	}
+	if (!strcmp(argv[0], "get")) {
+		err = ps_rgb_get(buf, sizeof(buf));
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"rgb\":\"%s\"}\n", buf);
+		else
+			puts(buf);
+		return 0;
+	}
+	if (!strcmp(argv[0], "off")) {
+		err = ps_rgb_off();
+		if (err)
+			return fail(err);
+		if (g_json)
+			puts("{\"ok\":true,\"rgb\":\"000000,000000,000000,000000,0\"}");
+		else
+			puts("rgb off");
+		return 0;
+	}
+	if (!strcmp(argv[0], "set")) {
+		char csv[64];
+		const char *bri = "60";
+
+		if (argc < 5) {
+			fputs("perfectsense: rgb set needs z1 z2 z3 z4 [bri]\n",
+			      stderr);
+			return 1;
+		}
+		if (argc >= 6)
+			bri = argv[5];
+		snprintf(csv, sizeof(csv), "%s,%s,%s,%s,%s", argv[1], argv[2],
+			 argv[3], argv[4], bri);
+		err = ps_rgb_set(csv);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"rgb\":\"%s\"}\n", csv);
+		else
+			puts(csv);
+		return 0;
+	}
+	fprintf(stderr, "perfectsense: unknown rgb subcommand '%s'\n", argv[0]);
+	return 1;
+}
+
+static int cmd_logo(int argc, char **argv)
+{
+	char buf[64];
+	int err;
+
+	if (argc < 1) {
+		usage(stderr);
+		return 1;
+	}
+	if (!strcmp(argv[0], "get")) {
+		err = ps_logo_get(buf, sizeof(buf));
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"logo\":\"%s\"}\n", buf);
+		else
+			puts(buf);
+		return 0;
+	}
+	if (!strcmp(argv[0], "off")) {
+		err = ps_logo_off();
+		if (err)
+			return fail(err);
+		if (g_json)
+			puts("{\"ok\":true,\"logo\":\"000000,0,0\"}");
+		else
+			puts("logo off");
+		return 0;
+	}
+	if (!strcmp(argv[0], "set")) {
+		char csv[40];
+		const char *bri = "70";
+		const char *en = "1";
+
+		if (argc < 2) {
+			fputs("perfectsense: logo set needs <RRGGBB> [bri] [en]\n",
+			      stderr);
+			return 1;
+		}
+		if (argc >= 3)
+			bri = argv[2];
+		if (argc >= 4)
+			en = argv[3];
+		snprintf(csv, sizeof(csv), "%s,%s,%s", argv[1], bri, en);
+		err = ps_logo_set(csv);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"logo\":\"%s\"}\n", csv);
+		else
+			puts(csv);
+		return 0;
+	}
+	fprintf(stderr, "perfectsense: unknown logo subcommand '%s'\n", argv[0]);
+	return 1;
+}
+
+static int cmd_lights(int argc, char **argv)
+{
+	int err;
+
+	if (argc < 1 || strcmp(argv[0], "reset")) {
+		fputs("perfectsense: usage: lights reset\n", stderr);
+		return 1;
+	}
+	err = ps_lighting_reset();
+	if (err)
+		return fail(err);
+	if (g_json)
+		puts("{\"ok\":true,\"lights\":\"reset\"}");
+	else
+		puts("lighting reset");
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int i = 1;
@@ -372,6 +510,12 @@ int main(int argc, char **argv)
 		return cmd_bool_attr("backlight_timeout", argc - i, argv + i);
 	if (!strcmp(cmd, "boot-sound"))
 		return cmd_bool_attr("boot_animation_sound", argc - i, argv + i);
+	if (!strcmp(cmd, "rgb"))
+		return cmd_rgb(argc - i, argv + i);
+	if (!strcmp(cmd, "logo"))
+		return cmd_logo(argc - i, argv + i);
+	if (!strcmp(cmd, "lights"))
+		return cmd_lights(argc - i, argv + i);
 
 	fprintf(stderr, "perfectsense: unknown command '%s'\n", cmd);
 	usage(stderr);

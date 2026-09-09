@@ -45,9 +45,9 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 1 in tree:** kernel module can load on PHN16-72, expose `api_version`,
-and read the firmware thermal profile via sysfs (see
-[implementation status](docs/en/implementation/README.md)).
+**Phase 2 in tree:** kernel module can get/set the firmware thermal profile
+(sysfs + `platform_profile`), with AC-gated aggressive modes. See
+[implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).

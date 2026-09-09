@@ -42,17 +42,22 @@ performed). Prefer anonymized / hardware-relevant data only.
 
 ## Firmware behavior notes (PHN16-72 class)
 
-### Verified in Phase 1 (read path)
+### Verified in Phase 1–2
 
 | Item | Value |
 |------|-------|
 | DMI product name (observed) | `Predator PHN16-72` |
 | Gaming WMI GUID | `7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56` |
 | Get misc setting method ID | `23` |
+| Set misc setting method ID | `22` |
+| Get sys info method ID | `5` |
+| Sys info cmd: battery/AC status | `0x02` (non-zero ⇒ AC) |
+| Misc index: supported profiles | `0x000A` (bit N ⇒ profile code N) |
 | Misc index: platform profile | `0x000B` |
-| Input packing | index in bits 7:0; value returned in bits 15:8; status bits 7:0 of result must be 0 |
+| Get packing | index bits 7:0; value bits 15:8; status bits 7:0 must be 0 |
+| Set packing | index bits 7:0 + value bits 15:8; status bits 7:0 must be 0 |
 
-Thermal profile firmware codes → PerfectSense names:
+Thermal profile firmware codes → PerfectSense / `platform_profile` names:
 
 | Code | Name |
 |------|------|
@@ -62,9 +67,10 @@ Thermal profile firmware codes → PerfectSense names:
 | `0x04` | `balanced-performance` |
 | `0x05` | `performance` (Turbo) |
 
+On battery, OEM policy blocks `quiet`, `balanced-performance`, and `performance`.
+
 ### Still to document as phases land
 
-- Set misc method (`22`) and AC-only restrictions for aggressive modes
 - Fan auto vs manual duty; live duty read vs last-written target
 - Four-zone keyboard and lid logo payload sizes / selectors
 - Battery charge limit semantics

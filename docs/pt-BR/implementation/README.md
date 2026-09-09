@@ -7,8 +7,8 @@
 
 | Área | Estado |
 |------|--------|
-| Módulo kernel | **Fase 1:** gate DMI, get WMI misc, sysfs `perfect_sense/` |
-| libperfectsense | Diretório placeholder |
+| Módulo kernel | **Fase 2:** get/set perfil, `platform_profile`, gate AC |
+| libperfectsense | Placeholder |
 | CLI | Stub Fase 0 |
 | perfectsensed / D-Bus | Não implementado |
 | FanAggressor | Não implementado |
@@ -16,23 +16,21 @@
 
 ## O que já está no repo
 
-### Kernel (`kmod/`, API **1**)
-
-Descarregar módulos WMI Acer gaming conflituosos antes de carregar. Paths:
+### Kernel (`kmod/`, API **2**)
 
 | Sysfs | Acesso | Significado |
 |-------|--------|-------------|
-| `/sys/devices/platform/perfectsense/perfect_sense/api_version` | RO | Versão ABI (`1`) |
-| `…/thermal_profile` | RO | Nome mapeado |
+| `…/perfect_sense/api_version` | RO | `2` |
+| `…/thermal_profile` | RW | Nome do perfil |
 | `…/thermal_profile_raw` | RO | Código firmware |
+| `…/ac_online` | RO | AC segundo firmware |
+| `/sys/firmware/acpi/platform_profile` | RW | Classe `perfectsense` |
 
-### Outros
+**Política AC:** em bateria, `quiet` / `balanced-performance` / `performance` →
+`-EOPNOTSUPP`. `low-power` e `balanced` ok.
 
-- Licenças AGPL/GPL conforme docs
-- Documentação bilingue
-- CLI Meson stub
-- Placeholders de packaging
+Fans ainda não (Fase 3).
 
 ## Ainda não
 
-Set de perfil, classe `platform_profile`, fans, RGB, D-Bus, etc. (fases 2+).
+Fans, RGB, D-Bus, FanAggressor, CPU power (fases 3+).

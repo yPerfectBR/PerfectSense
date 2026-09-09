@@ -7,7 +7,7 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 1:** DMI gate, WMI misc get, sysfs `perfect_sense/` |
+| Kernel module | **Phase 2:** profile get/set, `platform_profile`, AC gate |
 | libperfectsense | Placeholder directory |
 | CLI | Phase 0 stub binary |
 | perfectsensed / D-Bus | Not implemented |
@@ -16,18 +16,31 @@
 
 ## Shipped today
 
-### Kernel (`kmod/`, API version **1**)
+### Kernel (`kmod/`, API version **2**)
 
-Requires unloading conflicting Acer gaming WMI modules first (e.g. out-of-tree
-alternatives). Paths after load:
+Unload conflicting Acer gaming WMI modules before `insmod`.
 
 | Sysfs | Access | Meaning |
 |-------|--------|---------|
-| `/sys/devices/platform/perfectsense/perfect_sense/api_version` | RO | ABI version (`1`) |
-| `…/thermal_profile` | RO | Mapped name (`low-power`, `quiet`, `balanced`, `balanced-performance`, `performance`) |
-| `…/thermal_profile_raw` | RO | Firmware code (`0x00`…`0x06`) |
+| `/sys/devices/platform/perfectsense/perfect_sense/api_version` | RO | ABI version (`2`) |
+| `…/thermal_profile` | RW | Profile name (see table) |
+| `…/thermal_profile_raw` | RO | Firmware code |
+| `…/ac_online` | RO | `1` if AC per firmware, else `0` |
+| `/sys/firmware/acpi/platform_profile` | RW | Class device registered as `perfectsense` |
+| `/sys/firmware/acpi/platform_profile_choices` | RO | Supported profiles |
 
-Profile name mapping matches future `platform_profile` vocabulary (Phase 2).
+| Firmware | Name |
+|----------|------|
+| `0x06` | `low-power` |
+| `0x00` | `quiet` |
+| `0x01` | `balanced` |
+| `0x04` | `balanced-performance` |
+| `0x05` | `performance` |
+
+**AC policy:** on battery, setting `quiet`, `balanced-performance`, or `performance`
+returns `-EOPNOTSUPP`. `low-power` and `balanced` remain available.
+
+Quiet/Eco no longer force fan auto here (fans arrive in Phase 3).
 
 ### Other
 
@@ -38,5 +51,4 @@ Profile name mapping matches future `platform_profile` vocabulary (Phase 2).
 
 ## Not yet
 
-Profile **set**, `platform_profile` class registration, fans, RGB, D-Bus, etc.
-(see roadmap Phases 2+).
+Fans, RGB, D-Bus, FanAggressor, CPU power (Phases 3+).

@@ -50,7 +50,10 @@ daemon_exe = executable(
 )
 
 install_data(
-  'packaging/systemd/perfectsensed.service',
+  [
+    'packaging/systemd/perfectsensed.service',
+    'packaging/systemd/perfectsensed.path',
+  ],
   install_dir: get_option('prefix') / 'lib' / 'systemd' / 'system',
 )
 

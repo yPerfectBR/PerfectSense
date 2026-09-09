@@ -95,14 +95,17 @@ err_pdev:
 
 static void __exit perfectsense_exit(void)
 {
-	/* Hand control back to firmware before leaving */
+	/* Tear down userspace-facing interfaces before event/input state. */
 	ps_fan_set_auto();
-	ps_events_unregister();
-	ps_platform_profile_unregister();
 	if (ps_pdev) {
 		ps_sysfs_unregister(&ps_pdev->dev);
+		ps_events_unregister();
+		ps_platform_profile_unregister();
 		platform_device_unregister(ps_pdev);
 		ps_pdev = NULL;
+	} else {
+		ps_events_unregister();
+		ps_platform_profile_unregister();
 	}
 	pr_info("unloaded\n");
 }
@@ -113,6 +116,6 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.6.0");
+MODULE_VERSION("0.0.10");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");
 MODULE_ALIAS("wmi:676AA15E-6A47-4D9F-A2CC-1E6D18D14026");

@@ -61,38 +61,80 @@ static int emit_hotkey(const char *event, unsigned key)
 static void handle_mode_key(void)
 {
 	char cur[64];
-	size_t i, next = 0;
+	size_t i, start = 0;
+	size_t n = sizeof(g_mode_cycle) / sizeof(g_mode_cycle[0]);
 	int r;
 
 	if (ps_mode_get(cur, sizeof(cur)) < 0)
 		snprintf(cur, sizeof(cur), "balanced");
 
-	for (i = 0; i < sizeof(g_mode_cycle) / sizeof(g_mode_cycle[0]); i++) {
+	for (i = 0; i < n; i++) {
 		if (!strcmp(cur, g_mode_cycle[i])) {
-			next = (i + 1) %
-			       (sizeof(g_mode_cycle) / sizeof(g_mode_cycle[0]));
+			start = i;
 			break;
 		}
 	}
 
-	r = ps_mode_set(g_mode_cycle[next]);
-	if (r < 0) {
-		fprintf(stderr, "perfectsensed: mode key set %s: %s\n",
-			g_mode_cycle[next], strerror(-r));
-		return;
+	/* Skip profiles rejected by firmware (e.g. aggressive modes on battery). */
+	for (i = 1; i <= n; i++) {
+		size_t idx = (start + i) % n;
+
+		r = ps_mode_set(g_mode_cycle[idx]);
+		if (r == 0) {
+			snprintf(g_last_profile, sizeof(g_last_profile), "%s",
+				 g_mode_cycle[idx]);
+			(void)emit_profile_changed(g_last_profile);
+			sd_bus_emit_properties_changed(
+				g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+				"ThermalProfile", "PlatformProfile", NULL);
+			return;
+		}
+		if (r != -EOPNOTSUPP)
+			fprintf(stderr, "perfectsensed: mode key set %s: %s\n",
+				g_mode_cycle[idx], strerror(-r));
 	}
-	snprintf(g_last_profile, sizeof(g_last_profile), "%s",
-		 g_mode_cycle[next]);
-	(void)emit_profile_changed(g_last_profile);
-	sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
-					"ThermalProfile", "PlatformProfile",
-					NULL);
+	fprintf(stderr, "perfectsensed: mode key: no applicable profile\n");
 }
 
 static void handle_turbo_key(void)
 {
-	int r = ps_cpu_power_preset("turbo", 1);
+	struct ps_status st;
+	struct ps_cpu_power cpu;
+	int r;
 
+	memset(&st, 0, sizeof(st));
+	memset(&cpu, 0, sizeof(cpu));
+
+	if (ps_status_read(&st) == 0 && !st.ac_online) {
+		fprintf(stderr,
+			"perfectsensed: turbo key ignored (AC required)\n");
+		return;
+	}
+
+	/*
+	 * Toggle: if already on performance + performance governor, restore
+	 * the CPU snapshot and drop thermal to balanced.
+	 */
+	if (ps_cpu_power_read(&cpu) == 0 &&
+	    !strcmp(cpu.governor, "performance") &&
+	    !strcmp(st.thermal_profile, "performance")) {
+		r = ps_cpu_power_restore();
+		if (r < 0)
+			fprintf(stderr, "perfectsensed: turbo restore: %s\n",
+				strerror(-r));
+		if (ps_mode_set("balanced") == 0) {
+			snprintf(g_last_profile, sizeof(g_last_profile),
+				 "balanced");
+			(void)emit_profile_changed(g_last_profile);
+		}
+		sd_bus_emit_properties_changed(
+			g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "ThermalProfile",
+			"PlatformProfile", "CpuGovernor", "CpuEpp", "CpuTurbo",
+			"CpuMaxPerfPct", "CpuPl1Uw", "CpuPl2Uw", NULL);
+		return;
+	}
+
+	r = ps_cpu_power_preset("turbo", 1);
 	if (r < 0) {
 		fprintf(stderr, "perfectsensed: turbo key preset: %s\n",
 			strerror(-r));
@@ -904,7 +946,18 @@ int main(int argc, char **argv)
 				strerror(errno));
 			break;
 		}
+		if (fds[0].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+			fprintf(stderr, "perfectsensed: D-Bus fd closed\n");
+			break;
+		}
 		for (int i = 1; i < nfds; i++) {
+			if (fds[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+				fprintf(stderr,
+					"perfectsensed: fd %d error; stopping\n",
+					fds[i].fd);
+				g_stop = 1;
+				break;
+			}
 			if (!(fds[i].revents & POLLIN))
 				continue;
 			if (tfd >= 0 && fds[i].fd == tfd)

@@ -433,6 +433,16 @@ int ps_cpu_power_preset(const char *name, int sync_platform_profile)
 			return err;
 	}
 
+	/*
+	 * Apply thermal profile first when syncing: AC/firmware may reject
+	 * aggressive modes. Fail before mutating CPU knobs.
+	 */
+	if (sync_platform_profile && platform && ps_available() == 0) {
+		err = ps_mode_set(platform);
+		if (err)
+			return err;
+	}
+
 	err = ps_cpu_power_set_governor(gov);
 	if (err)
 		return err;
@@ -446,10 +456,5 @@ int ps_cpu_power_preset(const char *name, int sync_platform_profile)
 	if (err)
 		return err;
 
-	if (sync_platform_profile && platform && ps_available() == 0) {
-		err = ps_mode_set(platform);
-		if (err)
-			return err;
-	}
 	return 0;
 }

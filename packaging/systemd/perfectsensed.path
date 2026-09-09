@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch PerfectSense sysfs and start perfectsensed
+Documentation=man:perfectsensed(8)
+
+[Path]
+PathExists=/sys/devices/platform/perfectsense/perfect_sense/api_version
+Unit=perfectsensed.service
+
+[Install]
+WantedBy=multi-user.target

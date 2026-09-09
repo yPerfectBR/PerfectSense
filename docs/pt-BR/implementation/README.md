@@ -16,8 +16,8 @@
 
 Módulo: GUID de notify WMI + `PerfectSense Hotkeys` (`KEY_PROG1`/`KEY_PROG2`).
 
-Daemon: sinal D-Bus `Hotkey(s,u)`; **mode** cicla perfis térmicos; **turbo**
-aplica preset CPU `turbo`.
+Daemon: sinal D-Bus `Hotkey(s,u)`; **mode** cicla perfis (salta rejeitados em
+bateria); **turbo** (só AC) alterna preset CPU `turbo` / restore.
 
 Teste sintético: escrever em `…/perfect_sense/inject_event`.
 

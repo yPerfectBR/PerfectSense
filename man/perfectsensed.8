@@ -39,13 +39,16 @@ cycles thermal profiles
 \(->
 .BR balanced\-performance
 \(->
-.BR performance )
+.BR performance ),
+skipping profiles rejected by firmware (e.g. on battery)
 .IP \(bu 2
 on
 .B turbo
-applies the CPU power preset
+(AC only) toggles the CPU power preset
 .B turbo
-(with platform profile sync)
+with platform profile sync; a second press restores the CPU snapshot
+and returns thermal to
+.B balanced
 .SH SIGNALS
 .TP
 .B ProfileChanged (s)

@@ -33,8 +33,10 @@ org.perfectsense.Sense1.Hotkey (s event, u key)
 Default userspace actions:
 
 - **mode** — cycle thermal profiles (`low-power` → `quiet` → `balanced` →
-  `balanced-performance` → `performance`)
-- **turbo** — apply CPU preset `turbo` with platform profile sync
+  `balanced-performance` → `performance`), **skipping** profiles rejected by
+  firmware (e.g. aggressive modes on battery)
+- **turbo** — AC only; toggles CPU preset `turbo` (with platform sync). Second
+  press restores the CPU snapshot and returns thermal to `balanced`
 
 Debug (WO): `…/perfect_sense/inject_event` ← `turbo` | `mode` | `ac-online` |
 `ac-offline` (synthetic uevent/input for tests).

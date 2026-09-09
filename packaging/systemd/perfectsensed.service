@@ -4,6 +4,7 @@ Documentation=man:perfectsensed(8)
 Documentation=https://github.com/yPerfectBR/PerfectSense
 After=systemd-udevd.service
 # Soft dependency: start when the module sysfs appears; fail cleanly otherwise.
+# Pair with perfectsensed.path so late module load still starts the daemon.
 ConditionPathExists=/sys/devices/platform/perfectsense/perfect_sense/api_version
 
 [Service]
@@ -14,7 +15,7 @@ Restart=on-failure
 RestartSec=2
 User=root
 
-# Hardening (sysfs / RAPL / hwmon writes require tunables + full /sys)
+# Hardening — do NOT set ProtectKernelTunables (sysfs / RAPL / cpufreq writes).
 NoNewPrivileges=true
 ProtectHome=true
 ProtectSystem=full
@@ -34,3 +35,4 @@ RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target
+Also=perfectsensed.path

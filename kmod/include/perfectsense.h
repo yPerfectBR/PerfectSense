@@ -6,7 +6,7 @@
 #include <linux/platform_profile.h>
 #include <linux/types.h>
 
-#define PS_API_VERSION		4
+#define PS_API_VERSION		5
 
 /* Acer WMI GUIDs */
 #define PS_WMID_GUID3		"61EF69EA-865C-4BC3-A502-A0DEBA0CB531" /* ApgeAction */
@@ -15,11 +15,18 @@
 
 /* GUID4 gaming methods */
 #define PS_WMID_SET_GAMING_PROFILE	1
+#define PS_WMID_SET_GAMING_LED		2
 #define PS_WMID_GET_GAMING_PROFILE	3
 #define PS_WMID_GET_SYS_INFO		5
+#define PS_WMID_SET_RGB_KB		6
+#define PS_WMID_GET_RGB_KB		7
+#define PS_WMID_SET_LOGO		12
+#define PS_WMID_GET_LOGO		13
 #define PS_WMID_SET_FAN_BEHAVIOR	14
 #define PS_WMID_SET_FAN_SPEED		16
 #define PS_WMID_GET_FAN_SPEED		17
+#define PS_WMID_SET_KB_BACKLIGHT	20
+#define PS_WMID_GET_KB_BACKLIGHT	21
 #define PS_WMID_SET_MISC		22
 #define PS_WMID_GET_MISC		23
 
@@ -94,6 +101,39 @@ int ps_backlight_timeout_get(int *on);
 int ps_backlight_timeout_set(u8 on);
 int ps_boot_animation_sound_get(u8 *on);
 int ps_boot_animation_sound_set(u8 on);
+
+/* Phase 6 — RGB keyboard + lid logo */
+struct ps_kb_effect {
+	u8 mode;
+	u8 speed;
+	u8 brightness;
+	u8 direction;
+	u8 red;
+	u8 green;
+	u8 blue;
+};
+
+struct ps_kb_zones {
+	u32 zone[4]; /* 0xRRGGBB */
+	u8 brightness;
+};
+
+struct ps_logo {
+	u8 red;
+	u8 green;
+	u8 blue;
+	u8 brightness;
+	u8 enable;
+};
+
+int ps_kb_effect_get(struct ps_kb_effect *out);
+int ps_kb_effect_set(const struct ps_kb_effect *in);
+int ps_kb_zones_get(struct ps_kb_zones *out);
+int ps_kb_zones_set(const struct ps_kb_zones *in);
+int ps_kb_off(void);
+int ps_logo_get(struct ps_logo *out);
+int ps_logo_set(const struct ps_logo *in);
+int ps_lighting_reset(u8 val);
 
 int ps_sysfs_register(struct device *dev);
 void ps_sysfs_unregister(struct device *dev);

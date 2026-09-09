@@ -285,6 +285,130 @@ static ssize_t boot_animation_sound_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(boot_animation_sound);
 
+static ssize_t lighting_reset_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	unsigned int val;
+	int err;
+
+	if (kstrtouint(buf, 0, &val) || val > 255)
+		return -EINVAL;
+	err = ps_lighting_reset((u8)val);
+	return err ? err : count;
+}
+static DEVICE_ATTR_WO(lighting_reset);
+
+/* four_zoned_kb / back_logo groups */
+static ssize_t per_zone_mode_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct ps_kb_zones z;
+	int err = ps_kb_zones_get(&z);
+
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%06x,%06x,%06x,%06x,%u\n",
+			  z.zone[0], z.zone[1], z.zone[2], z.zone[3],
+			  z.brightness);
+}
+
+static ssize_t per_zone_mode_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct ps_kb_zones z = { 0 };
+	unsigned int bri;
+	int n;
+
+	n = sscanf(buf, "%6x,%6x,%6x,%6x,%u", &z.zone[0], &z.zone[1],
+		   &z.zone[2], &z.zone[3], &bri);
+	if (n != 5 || bri > 100)
+		return -EINVAL;
+	z.brightness = (u8)bri;
+	n = ps_kb_zones_set(&z);
+	return n ? n : count;
+}
+static DEVICE_ATTR_RW(per_zone_mode);
+
+static ssize_t four_zone_mode_show(struct device *dev,
+				   struct device_attribute *attr, char *buf)
+{
+	struct ps_kb_effect e;
+	int err = ps_kb_effect_get(&e);
+
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%u,%u,%u,%u,%u,%u,%u\n", e.mode, e.speed,
+			  e.brightness, e.direction, e.red, e.green, e.blue);
+}
+
+static ssize_t four_zone_mode_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
+{
+	struct ps_kb_effect e;
+	unsigned int mode, speed, bri, dir, r, g, b;
+	int err;
+
+	if (sscanf(buf, "%u,%u,%u,%u,%u,%u,%u", &mode, &speed, &bri, &dir, &r,
+		   &g, &b) != 7)
+		return -EINVAL;
+	if (mode > 7 || speed > 9 || bri > 100 || dir > 2 || r > 255 ||
+	    g > 255 || b > 255)
+		return -EINVAL;
+	e.mode = (u8)mode;
+	e.speed = (u8)speed;
+	e.brightness = (u8)bri;
+	e.direction = (u8)dir;
+	e.red = (u8)r;
+	e.green = (u8)g;
+	e.blue = (u8)b;
+	err = ps_kb_effect_set(&e);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(four_zone_mode);
+
+static ssize_t color_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct ps_logo logo;
+	int err = ps_logo_get(&logo);
+
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%02x%02x%02x,%u,%u\n", logo.red, logo.green,
+			  logo.blue, logo.brightness, logo.enable);
+}
+
+static ssize_t color_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	struct ps_logo logo = { 0 };
+	unsigned int r, g, b, bri, en;
+	int n, err;
+	char hex[8];
+
+	n = sscanf(buf, "%6[0-9a-fA-F],%u,%u", hex, &bri, &en);
+	if (n < 2 || bri > 100)
+		return -EINVAL;
+	if (strlen(hex) != 6 || sscanf(hex, "%02x%02x%02x", &r, &g, &b) != 3)
+		return -EINVAL;
+	if (n < 3)
+		en = bri > 0 ? 1 : 0;
+	else if (en > 1)
+		return -EINVAL;
+
+	logo.red = (u8)r;
+	logo.green = (u8)g;
+	logo.blue = (u8)b;
+	logo.brightness = (u8)bri;
+	logo.enable = (u8)en;
+	err = ps_logo_set(&logo);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(color);
+
 static struct attribute *ps_attrs[] = {
 	&dev_attr_api_version.attr,
 	&dev_attr_thermal_profile.attr,
@@ -298,6 +422,18 @@ static struct attribute *ps_attrs[] = {
 	&dev_attr_lcd_override.attr,
 	&dev_attr_backlight_timeout.attr,
 	&dev_attr_boot_animation_sound.attr,
+	&dev_attr_lighting_reset.attr,
+	NULL,
+};
+
+static struct attribute *ps_kb_attrs[] = {
+	&dev_attr_per_zone_mode.attr,
+	&dev_attr_four_zone_mode.attr,
+	NULL,
+};
+
+static struct attribute *ps_logo_attrs[] = {
+	&dev_attr_color.attr,
 	NULL,
 };
 
@@ -306,12 +442,41 @@ static const struct attribute_group ps_attr_group = {
 	.attrs = ps_attrs,
 };
 
+static const struct attribute_group ps_kb_attr_group = {
+	.name = "four_zoned_kb",
+	.attrs = ps_kb_attrs,
+};
+
+static const struct attribute_group ps_logo_attr_group = {
+	.name = "back_logo",
+	.attrs = ps_logo_attrs,
+};
+
 int ps_sysfs_register(struct device *dev)
 {
-	return sysfs_create_group(&dev->kobj, &ps_attr_group);
+	int err;
+
+	err = sysfs_create_group(&dev->kobj, &ps_attr_group);
+	if (err)
+		return err;
+	err = sysfs_create_group(&dev->kobj, &ps_kb_attr_group);
+	if (err)
+		goto err_sense;
+	err = sysfs_create_group(&dev->kobj, &ps_logo_attr_group);
+	if (err)
+		goto err_kb;
+	return 0;
+
+err_kb:
+	sysfs_remove_group(&dev->kobj, &ps_kb_attr_group);
+err_sense:
+	sysfs_remove_group(&dev->kobj, &ps_attr_group);
+	return err;
 }
 
 void ps_sysfs_unregister(struct device *dev)
 {
+	sysfs_remove_group(&dev->kobj, &ps_logo_attr_group);
+	sysfs_remove_group(&dev->kobj, &ps_kb_attr_group);
 	sysfs_remove_group(&dev->kobj, &ps_attr_group);
 }

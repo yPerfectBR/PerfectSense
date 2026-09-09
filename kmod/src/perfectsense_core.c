@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * PerfectSense — core init (Phase 5: battery / misc attrs).
+ * PerfectSense — core init (Phase 6: RGB keyboard + lid logo).
  *
  * Unload conflicting Acer gaming WMI modules before loading this driver.
  */
@@ -104,5 +104,5 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.4.0");
+MODULE_VERSION("0.5.0");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");

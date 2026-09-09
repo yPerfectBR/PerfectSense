@@ -6,12 +6,13 @@
 #include <linux/platform_profile.h>
 #include <linux/types.h>
 
-#define PS_API_VERSION		5
+#define PS_API_VERSION		6
 
 /* Acer WMI GUIDs */
 #define PS_WMID_GUID3		"61EF69EA-865C-4BC3-A502-A0DEBA0CB531" /* ApgeAction */
 #define PS_WMID_GUID4		"7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56" /* Gaming */
 #define PS_WMID_GUID5		"79772EC5-04B1-4bfd-843C-61E7F77B6CC9" /* Battery health */
+#define PS_EVENT_GUID		"676AA15E-6A47-4D9F-A2CC-1E6D18D14026" /* Hotkeys / AC */
 
 /* GUID4 gaming methods */
 #define PS_WMID_SET_GAMING_PROFILE	1
@@ -141,6 +142,10 @@ void ps_sysfs_unregister(struct device *dev);
 int ps_platform_profile_register(struct device *parent);
 void ps_platform_profile_unregister(void);
 void ps_platform_profile_notify(void);
+
+int ps_events_register(struct device *parent);
+void ps_events_unregister(void);
+void ps_events_inject(const char *event, u8 key_num);
 
 bool ps_dmi_supported(void);
 

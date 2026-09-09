@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * PerfectSense — core init (Phase 6: RGB keyboard + lid logo).
+ * PerfectSense — core init (Phase 10: hotkey / AC WMI events).
  *
  * Unload conflicting Acer gaming WMI modules before loading this driver.
  */
@@ -60,6 +60,12 @@ static int __init perfectsense_init(void)
 		goto err_sysfs;
 	}
 
+	err = ps_events_register(&ps_pdev->dev);
+	if (err) {
+		pr_err("events register failed: %d\n", err);
+		goto err_pp;
+	}
+
 	/* Start from firmware auto unless userspace overrides */
 	ps_fan_set_auto();
 
@@ -77,6 +83,8 @@ static int __init perfectsense_init(void)
 	}
 	return 0;
 
+err_pp:
+	ps_platform_profile_unregister();
 err_sysfs:
 	ps_sysfs_unregister(&ps_pdev->dev);
 err_pdev:
@@ -89,6 +97,7 @@ static void __exit perfectsense_exit(void)
 {
 	/* Hand control back to firmware before leaving */
 	ps_fan_set_auto();
+	ps_events_unregister();
 	ps_platform_profile_unregister();
 	if (ps_pdev) {
 		ps_sysfs_unregister(&ps_pdev->dev);
@@ -104,5 +113,6 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.5.0");
+MODULE_VERSION("0.6.0");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");
+MODULE_ALIAS("wmi:676AA15E-6A47-4D9F-A2CC-1E6D18D14026");

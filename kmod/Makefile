@@ -12,7 +12,8 @@ perfectsense-y := \
 	src/platform_profile.o \
 	src/fan.o \
 	src/attrs.o \
-	src/rgb.o
+	src/rgb.o \
+	src/events.o
 
 ccflags-y += -I$(src)/include
 

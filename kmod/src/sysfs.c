@@ -285,6 +285,30 @@ static ssize_t boot_animation_sound_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(boot_animation_sound);
 
+static ssize_t inject_event_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	char name[32];
+	size_t len = min(count, sizeof(name) - 1);
+
+	memcpy(name, buf, len);
+	name[len] = '\0';
+	strim(name);
+	if (!strcmp(name, "turbo"))
+		ps_events_inject("turbo", 0x4);
+	else if (!strcmp(name, "mode"))
+		ps_events_inject("mode", 0x5);
+	else if (!strcmp(name, "ac-online"))
+		ps_events_inject("ac-online", 1);
+	else if (!strcmp(name, "ac-offline"))
+		ps_events_inject("ac-offline", 0);
+	else
+		return -EINVAL;
+	return count;
+}
+static DEVICE_ATTR_WO(inject_event);
+
 static ssize_t lighting_reset_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t count)
@@ -423,6 +447,7 @@ static struct attribute *ps_attrs[] = {
 	&dev_attr_backlight_timeout.attr,
 	&dev_attr_boot_animation_sound.attr,
 	&dev_attr_lighting_reset.attr,
+	&dev_attr_inject_event.attr,
 	NULL,
 };
 

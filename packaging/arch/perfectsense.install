@@ -1,0 +1,16 @@
+post_install() {
+  dkms install "perfectsense/${1%%-*}" >/dev/null 2>&1 || true
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  echo 'Unload conflicting Acer gaming WMI modules before loading perfectsense.'
+  echo 'Then: modprobe perfectsense && systemctl enable --now perfectsensed'
+}
+
+post_upgrade() {
+  post_install "$1"
+}
+
+post_remove() {
+  local ver="${1%%-*}"
+  dkms remove "perfectsense/${ver}" --all >/dev/null 2>&1 || true
+  systemctl daemon-reload >/dev/null 2>&1 || true
+}

@@ -1,21 +1,71 @@
-# PerfectSense — Arch Linux (skeleton)
+# Maintainer: PerfectSense contributors
+# https://github.com/yPerfectBR/PerfectSense
+#
+# Build from a checkout:
+#   cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
+# Or set PERFECTSENSE_SRC to the repository root.
 
 pkgname=perfectsense
-pkgver=0.0.9
+pkgver=0.0.10
 pkgrel=1
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
 url='https://github.com/yPerfectBR/PerfectSense'
 license=('AGPL-3.0-or-later' 'GPL-2.0-or-later')
 depends=('dkms' 'systemd-libs')
-makedepends=('meson' 'ninja' 'linux-headers')
+makedepends=('meson' 'ninja' 'systemd')
+optdepends=('linux-headers: build perfectsense.ko via DKMS')
+install=perfectsense.install
 source=()
 sha256sums=()
 
-# Skeleton: real package() will meson-install userspace (CLI, lib, perfectsensed,
-# dbus/systemd units), DKMS kmod sources, and modprobe.d blacklist snippets.
+prepare() {
+  if [[ -n ${PERFECTSENSE_SRC:-} ]]; then
+    _srcdir=$(cd "$PERFECTSENSE_SRC" && pwd)
+  else
+    _srcdir=$(cd "${startdir}/../.." && pwd)
+  fi
+  if [[ ! -f "$_srcdir/meson.build" ]]; then
+    echo "PerfectSense source not found at $_srcdir (set PERFECTSENSE_SRC)" >&2
+    return 1
+  fi
+  rm -rf "$srcdir/$pkgname-$pkgver"
+  mkdir -p "$srcdir/$pkgname-$pkgver"
+  tar -C "$_srcdir" \
+    --exclude='.git' \
+    --exclude='build' \
+    --exclude='kmod/*.ko' \
+    --exclude='kmod/*.o' \
+    --exclude='kmod/.*.cmd' \
+    --exclude='kmod/Module.symvers' \
+    --exclude='kmod/modules.order' \
+    --exclude='kmod/.tmp_versions' \
+    -cf - . | tar -C "$srcdir/$pkgname-$pkgver" -xf -
+}
+
+build() {
+  arch-meson "$srcdir/$pkgname-$pkgver" build
+  meson compile -C build
+}
 
 package() {
-  echo 'PKGBUILD skeleton — not installable yet' >&2
-  return 1
+  meson install -C build --destdir "$pkgdir"
+
+  local dkmsdir="$pkgdir/usr/src/perfectsense-$pkgver"
+  install -d "$dkmsdir"
+  cp -a "$srcdir/$pkgname-$pkgver/kmod/." "$dkmsdir/"
+  sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$pkgver\"/" "$dkmsdir/dkms.conf"
+
+  install -Dm644 "$srcdir/$pkgname-$pkgver/packaging/modprobe.d/perfectsense.conf" \
+    "$pkgdir/usr/lib/modprobe.d/perfectsense.conf"
+
+  install -Dm644 "$srcdir/$pkgname-$pkgver/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  if [[ -f $srcdir/$pkgname-$pkgver/kmod/COPYING ]]; then
+    install -Dm644 "$srcdir/$pkgname-$pkgver/kmod/COPYING" \
+      "$pkgdir/usr/share/licenses/$pkgname/COPYING.kmod"
+  elif [[ -f $srcdir/$pkgname-$pkgver/kmod/LICENSE ]]; then
+    install -Dm644 "$srcdir/$pkgname-$pkgver/kmod/LICENSE" \
+      "$pkgdir/usr/share/licenses/$pkgname/LICENSE.kmod"
+  fi
 }

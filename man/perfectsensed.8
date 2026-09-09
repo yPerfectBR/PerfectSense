@@ -1,0 +1,74 @@
+.\" SPDX-License-Identifier: AGPL-3.0-or-later
+.TH PERFECTSENSED 8 "2026-05-08" "PerfectSense 0.0.10" "System Management"
+.SH NAME
+perfectsensed \- PerfectSense system daemon (org.perfectsense.Sense1)
+.SH SYNOPSIS
+.B perfectsensed
+.SH DESCRIPTION
+.B perfectsensed
+is a root
+.B systemd
+service that exports
+.B org.perfectsense.Sense1
+on the system bus.
+It mirrors PerfectSense sysfs state as D\-Bus properties and methods, runs
+FanAggressor
+.B only
+while offset mode is enabled, and translates kernel hotkey/AC uevents into the
+.B Hotkey
+signal.
+.PP
+Hardware keys are handled in the kernel module as input events plus uevents
+with
+.B PERFECTSENSE_EVENT
+/
+.B PERFECTSENSE_KEY .
+The daemon:
+.IP \(bu 2
+emits
+.BI Hotkey "(s event, u key)"
+.IP \(bu 2
+on
+.B mode
+cycles thermal profiles
+.RB ( low\-power
+\(->
+.BR quiet
+\(->
+.BR balanced
+\(->
+.BR balanced\-performance
+\(->
+.BR performance )
+.IP \(bu 2
+on
+.B turbo
+applies the CPU power preset
+.B turbo
+(with platform profile sync)
+.SH SIGNALS
+.TP
+.B ProfileChanged (s)
+Thermal profile name changed.
+.TP
+.B FanAggressorChanged (b)
+FanAggressor enable flag changed.
+.TP
+.B Hotkey (su)
+Firmware/key event name and numeric key code from the module.
+.SH FILES
+.TP
+.I /usr/lib/systemd/system/perfectsensed.service
+Unit file.
+.TP
+.I /usr/share/dbus\-1/system.d/org.perfectsense.Sense1.conf
+D\-Bus policy.
+.TP
+.I /run/perfectsense/
+Runtime directory (FanAggressor config).
+.SH SEE ALSO
+.BR perfectsense (1),
+.BR systemd.service (5),
+.BR busctl (1)
+.SH BUGS
+Report issues at https://github.com/yPerfectBR/PerfectSense

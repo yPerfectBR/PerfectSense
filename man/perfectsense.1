@@ -1,0 +1,91 @@
+.\" SPDX-License-Identifier: AGPL-3.0-or-later
+.TH PERFECTSENSE 1 "2026-05-08" "PerfectSense 0.0.10" "User Commands"
+.SH NAME
+perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
+.SH SYNOPSIS
+.B perfectsense
+[\fB\-\-json\fR]
+.I command
+[\fIargs\fR...]
+.SH DESCRIPTION
+.B perfectsense
+reads and writes PerfectSense sysfs attributes via
+.BR libperfectsense (3).
+It does
+.B not
+require
+.BR perfectsensed (8)
+for get/set operations.
+.PP
+The kernel module
+.B perfectsense.ko
+must be loaded and must own the Acer gaming WMI path (unload conflicting
+drivers such as out-of-tree gaming WMI modules first).
+.SH OPTIONS
+.TP
+.B \-\-json
+Emit machine-readable JSON for commands that support it (notably
+.BR status ).
+.SH COMMANDS
+.TP
+.B status
+Print thermal profile, AC, fans, battery/misc, RGB/logo summary.
+.TP
+.BI "mode get" \fR "|" " mode set " name
+Get or set the firmware thermal profile.
+Names:
+.BR low\-power ,
+.BR quiet ,
+.BR balanced ,
+.BR balanced\-performance ,
+.BR performance .
+Aliases:
+.BR eco ,
+.BR turbo ,
+.BR bp .
+.TP
+.BI "fan get" \fR "|" " fan set " "cpu gpu" \fR "|" " fan auto"
+Read live duty or set target duties (percent), or return fans to firmware auto.
+.TP
+.BI "fan aggressor on" \fR "|" " off" \fR "|" " status"
+Enable/disable FanAggressor offset mode via the shared runtime config
+(consumed by
+.BR perfectsensed ).
+.TP
+.B battery \fR...
+80% charge limiter and calibration helpers.
+.TP
+.B usb \fR... / \fBlcd \fR... / \fBkb\-timeout \fR... / \fBboot\-sound \fR...
+Misc GUID attributes exposed by the module.
+.TP
+.B rgb \fR... / \fBlogo \fR... / \fBlights reset
+Four-zone keyboard and lid logo lighting.
+.TP
+.B cpu \fR...
+Userspace CPU power (governor, EPP, turbo, RAPL) and named presets.
+.SH ENVIRONMENT
+.TP
+.B PERFECTSENSE_SYSFS
+Override path to the
+.B perfect_sense
+sysfs group.
+.TP
+.B PERFECTSENSE_KB_SYSFS
+Override four-zone keyboard sysfs group.
+.TP
+.B PERFECTSENSE_LOGO_SYSFS
+Override lid logo sysfs group.
+.SH FILES
+.TP
+.I /sys/devices/platform/perfectsense/perfect_sense/
+Primary ABI (
+.BR api_version
+and attributes).
+.TP
+.I /run/perfectsense/fan\-aggressor.conf
+FanAggressor runtime config (when used with the daemon).
+.SH SEE ALSO
+.BR perfectsensed (8),
+.BR busctl (1)
+.SH BUGS
+Report issues at https://github.com/yPerfectBR/PerfectSense

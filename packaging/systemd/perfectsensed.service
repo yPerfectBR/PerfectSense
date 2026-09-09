@@ -1,5 +1,6 @@
 [Unit]
 Description=PerfectSense hardware daemon (org.perfectsense.Sense1)
+Documentation=man:perfectsensed(8)
 Documentation=https://github.com/yPerfectBR/PerfectSense
 After=systemd-udevd.service
 # Soft dependency: start when the module sysfs appears; fail cleanly otherwise.
@@ -11,8 +12,25 @@ BusName=org.perfectsense.Sense1
 ExecStart=/usr/bin/perfectsensed
 Restart=on-failure
 RestartSec=2
-# Root: sysfs writes for profile/fans/RGB
 User=root
+
+# Hardening (sysfs / RAPL / hwmon writes require tunables + full /sys)
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=full
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectHostname=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+ReadWritePaths=/run/perfectsense
+RuntimeDirectory=perfectsense
+RuntimeDirectoryMode=0755
 
 [Install]
 WantedBy=multi-user.target

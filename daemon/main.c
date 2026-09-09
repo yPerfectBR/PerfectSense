@@ -4,6 +4,7 @@
  *
  * Talks to PerfectSense sysfs via libperfectsense.
  * FanAggressor timerfd runs only while offset mode is enabled.
+ * Phase 10: sd-device watches platform uevents → Hotkey D-Bus signal.
  */
 
 #include "perfectsense.h"
@@ -20,6 +21,7 @@
 
 #include <systemd/sd-bus.h>
 #include <systemd/sd-daemon.h>
+#include <systemd/sd-device.h>
 
 #define PS_DBUS_NAME  "org.perfectsense.Sense1"
 #define PS_DBUS_PATH  "/org/perfectsense/Sense1"
@@ -27,7 +29,16 @@
 
 static volatile sig_atomic_t g_stop;
 static sd_bus *g_bus;
+static sd_device_monitor *g_udev_mon;
 static char g_last_profile[64];
+
+static const char *const g_mode_cycle[] = {
+	"low-power",
+	"quiet",
+	"balanced",
+	"balanced-performance",
+	"performance",
+};
 
 static void on_signal(int sig)
 {
@@ -39,6 +50,130 @@ static int emit_profile_changed(const char *profile)
 {
 	return sd_bus_emit_signal(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
 				  "ProfileChanged", "s", profile);
+}
+
+static int emit_hotkey(const char *event, unsigned key)
+{
+	return sd_bus_emit_signal(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "Hotkey",
+				  "su", event, key);
+}
+
+static void handle_mode_key(void)
+{
+	char cur[64];
+	size_t i, next = 0;
+	int r;
+
+	if (ps_mode_get(cur, sizeof(cur)) < 0)
+		snprintf(cur, sizeof(cur), "balanced");
+
+	for (i = 0; i < sizeof(g_mode_cycle) / sizeof(g_mode_cycle[0]); i++) {
+		if (!strcmp(cur, g_mode_cycle[i])) {
+			next = (i + 1) %
+			       (sizeof(g_mode_cycle) / sizeof(g_mode_cycle[0]));
+			break;
+		}
+	}
+
+	r = ps_mode_set(g_mode_cycle[next]);
+	if (r < 0) {
+		fprintf(stderr, "perfectsensed: mode key set %s: %s\n",
+			g_mode_cycle[next], strerror(-r));
+		return;
+	}
+	snprintf(g_last_profile, sizeof(g_last_profile), "%s",
+		 g_mode_cycle[next]);
+	(void)emit_profile_changed(g_last_profile);
+	sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+					"ThermalProfile", "PlatformProfile",
+					NULL);
+}
+
+static void handle_turbo_key(void)
+{
+	int r = ps_cpu_power_preset("turbo", 1);
+
+	if (r < 0) {
+		fprintf(stderr, "perfectsensed: turbo key preset: %s\n",
+			strerror(-r));
+		return;
+	}
+	if (ps_mode_get(g_last_profile, sizeof(g_last_profile)) == 0)
+		(void)emit_profile_changed(g_last_profile);
+	sd_bus_emit_properties_changed(
+		g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "ThermalProfile",
+		"PlatformProfile", "CpuGovernor", "CpuEpp", "CpuTurbo",
+		"CpuMaxPerfPct", "CpuPl1Uw", "CpuPl2Uw", NULL);
+}
+
+static void on_udev_event(void)
+{
+	sd_device *dev = NULL;
+	const char *sysname = NULL;
+	const char *event = NULL;
+	const char *key_s = NULL;
+	unsigned key = 0;
+	int r;
+
+	r = sd_device_monitor_receive(g_udev_mon, &dev);
+	if (r < 0)
+		return;
+
+	(void)sd_device_get_sysname(dev, &sysname);
+	if (!sysname || strcmp(sysname, "perfectsense") != 0)
+		goto out;
+
+	if (sd_device_get_property_value(dev, "PERFECTSENSE_EVENT", &event) < 0 ||
+	    !event)
+		goto out;
+
+	if (sd_device_get_property_value(dev, "PERFECTSENSE_KEY", &key_s) == 0 &&
+	    key_s)
+		key = (unsigned)strtoul(key_s, NULL, 10);
+
+	(void)emit_hotkey(event, key);
+
+	if (!strcmp(event, "mode"))
+		handle_mode_key();
+	else if (!strcmp(event, "turbo"))
+		handle_turbo_key();
+	else if (!strcmp(event, "ac-online") || !strcmp(event, "ac-offline"))
+		sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+						"AcOnline", NULL);
+
+out:
+	sd_device_unref(dev);
+}
+
+static int udev_monitor_setup(void)
+{
+	int r;
+
+	r = sd_device_monitor_new(&g_udev_mon);
+	if (r < 0)
+		return r;
+
+	r = sd_device_monitor_filter_add_match_subsystem_devtype(g_udev_mon,
+								"platform",
+								NULL);
+	if (r < 0)
+		goto fail;
+
+	r = sd_device_monitor_filter_update(g_udev_mon);
+	if (r < 0)
+		goto fail;
+
+	/* NULL callback: retrieve devices via sd_device_monitor_receive(). */
+	r = sd_device_monitor_start(g_udev_mon, NULL, NULL);
+	if (r < 0)
+		goto fail;
+
+	return 0;
+
+fail:
+	sd_device_monitor_unref(g_udev_mon);
+	g_udev_mon = NULL;
+	return r;
 }
 
 static int prop_api_version(sd_bus *bus, const char *path, const char *iface,
@@ -671,6 +806,7 @@ static const sd_bus_vtable sense1_vtable[] = {
 
 	SD_BUS_SIGNAL("ProfileChanged", "s", 0),
 	SD_BUS_SIGNAL("FanAggressorChanged", "b", 0),
+	SD_BUS_SIGNAL("Hotkey", "su", 0),
 
 	SD_BUS_VTABLE_END,
 };
@@ -715,14 +851,21 @@ int main(int argc, char **argv)
 		fprintf(stderr, "perfectsensed: fan aggressor init: %s\n",
 			strerror(-r));
 
+	r = udev_monitor_setup();
+	if (r < 0)
+		fprintf(stderr, "perfectsensed: udev monitor: %s\n",
+			strerror(-r));
+
 	sd_notify(0, "READY=1");
-	fprintf(stderr, "perfectsensed: listening on %s (fan_aggressor=%s)\n",
-		PS_DBUS_NAME, fa_runtime_enabled() ? "on" : "off");
+	fprintf(stderr, "perfectsensed: listening on %s (fan_aggressor=%s, udev=%s)\n",
+		PS_DBUS_NAME, fa_runtime_enabled() ? "on" : "off",
+		g_udev_mon ? "on" : "off");
 
 	while (!g_stop) {
-		struct pollfd fds[2];
+		struct pollfd fds[3];
 		int nfds = 1;
 		int tfd;
+		int ufd = -1;
 
 		r = sd_bus_process(g_bus, NULL);
 		if (r < 0) {
@@ -738,10 +881,19 @@ int main(int argc, char **argv)
 		fds[0].revents = 0;
 		tfd = fa_runtime_timer_fd();
 		if (tfd >= 0) {
-			fds[1].fd = tfd;
-			fds[1].events = POLLIN;
-			fds[1].revents = 0;
-			nfds = 2;
+			fds[nfds].fd = tfd;
+			fds[nfds].events = POLLIN;
+			fds[nfds].revents = 0;
+			nfds++;
+		}
+		if (g_udev_mon) {
+			ufd = sd_device_monitor_get_fd(g_udev_mon);
+			if (ufd >= 0) {
+				fds[nfds].fd = ufd;
+				fds[nfds].events = POLLIN;
+				fds[nfds].revents = 0;
+				nfds++;
+			}
 		}
 
 		r = poll(fds, (nfds_t)nfds, -1);
@@ -752,8 +904,14 @@ int main(int argc, char **argv)
 				strerror(errno));
 			break;
 		}
-		if (nfds == 2 && (fds[1].revents & POLLIN))
-			fa_runtime_on_timer();
+		for (int i = 1; i < nfds; i++) {
+			if (!(fds[i].revents & POLLIN))
+				continue;
+			if (tfd >= 0 && fds[i].fd == tfd)
+				fa_runtime_on_timer();
+			else if (ufd >= 0 && fds[i].fd == ufd)
+				on_udev_event();
+		}
 	}
 
 	sd_notify(0, "STOPPING=1");
@@ -761,6 +919,8 @@ int main(int argc, char **argv)
 	r = 0;
 
 out:
+	if (g_udev_mon)
+		sd_device_monitor_unref(g_udev_mon);
 	sd_bus_slot_unref(slot);
 	sd_bus_unref(g_bus);
 	return r < 0 ? 1 : 0;

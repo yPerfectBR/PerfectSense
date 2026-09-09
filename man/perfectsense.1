@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.20" "User Commands"
+.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.21" "User Commands"
 .SH NAME
 perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
 .SH SYNOPSIS
@@ -61,9 +61,12 @@ Query or force
 Best-effort NVIDIA PowerMizer Preferred Mode (often does not stick on Wayland).
 .TP
 .BI "mode get" \fR "|" " mode set " name
-Get or set the firmware thermal profile (also syncs
+Get or set the firmware thermal profile.
+Also syncs
 .B nvidia\-powerd
-on Helios).
+on Helios and applies matching userspace CPU governor / EPP
+(low\-power→power, quiet→balance_power, balanced→balance_performance,
+balanced\-performance→performance EPP, performance→governor performance).
 Names:
 .BR low\-power ,
 .BR quiet ,

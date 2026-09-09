@@ -305,9 +305,16 @@ int ps_mode_set(const char *name)
 	 * the expected state (UI should warn; profile is still applied).
 	 */
 	err = ps_gpu_powerd_for_profile(normalized);
-	if (err)
+	if (err && err != -EBUSY)
 		return err;
-	return 0;
+
+	/*
+	 * Best-effort CPU governor / EPP for the same profile. Failure here
+	 * must not undo thermal/powerd — ignore -ENODEV and write errors.
+	 */
+	(void)ps_cpu_power_for_profile(normalized);
+
+	return err; /* 0 or -EBUSY from powerd */
 }
 
 int ps_fan_duty_get(unsigned *cpu, unsigned *gpu)

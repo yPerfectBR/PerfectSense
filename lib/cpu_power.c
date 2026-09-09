@@ -436,6 +436,8 @@ int ps_cpu_power_preset(const char *name, int sync_platform_profile)
 	/*
 	 * Apply thermal profile first when syncing: AC/firmware may reject
 	 * aggressive modes. Fail before mutating CPU knobs.
+	 * ps_mode_set also applies CPU for the profile; we re-apply below so
+	 * named presets stay authoritative for gov/epp.
 	 */
 	if (sync_platform_profile && platform && ps_available() == 0) {
 		err = ps_mode_set(platform);
@@ -457,4 +459,55 @@ int ps_cpu_power_preset(const char *name, int sync_platform_profile)
 		return err;
 
 	return 0;
+}
+
+/*
+ * Map firmware thermal_profile → cpufreq governor / EPP.
+ * Quiet uses balance_power; performance (Predator "turbo") locks
+ * scaling_governor=performance. Best-effort: missing CPU sysfs → -ENODEV.
+ */
+int ps_cpu_power_for_profile(const char *thermal_name)
+{
+	const char *gov = "powersave";
+	const char *epp = "balance_performance";
+	int err;
+
+	if (!thermal_name || !thermal_name[0])
+		return -EINVAL;
+
+	if (!strcmp(thermal_name, "low-power")) {
+		epp = "power";
+	} else if (!strcmp(thermal_name, "quiet")) {
+		epp = "balance_power";
+	} else if (!strcmp(thermal_name, "balanced")) {
+		epp = "balance_performance";
+	} else if (!strcmp(thermal_name, "balanced-performance")) {
+		epp = "performance";
+	} else if (!strcmp(thermal_name, "performance")) {
+		gov = "performance";
+		epp = "performance";
+	} else {
+		return -EINVAL;
+	}
+
+	err = ps_cpu_power_available();
+	if (err)
+		return err;
+
+	if (access(PS_CPU_SNAP_PATH, F_OK) != 0) {
+		err = ps_cpu_power_snapshot_save();
+		if (err)
+			return err;
+	}
+
+	err = ps_cpu_power_set_governor(gov);
+	if (err)
+		return err;
+	err = ps_cpu_power_set_epp(epp);
+	if (err)
+		return err;
+	err = ps_cpu_power_set_turbo(1);
+	if (err)
+		return err;
+	return ps_cpu_power_set_max_perf_pct(100);
 }

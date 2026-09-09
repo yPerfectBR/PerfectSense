@@ -100,9 +100,10 @@ Disabling offset cancels the timer and returns fans to auto.
 ## CPU power controls
 
 Governor, EPP, turbo, RAPL PL1/PL2, and max frequency are **userspace**
-concerns (sysfs `cpufreq` / `powercap`), coordinated by the library/daemon.
-They are separate from WMI thermal profile but can be composed into named
-power presets.
+concerns (sysfs `cpufreq` / `powercap`). `ps_mode_set()` / `perfectsense mode set`
+best-effort apply matching governor/EPP for the thermal profile (and keep a
+CPU snapshot for turbo restore). Named `cpu preset` values remain available
+for explicit composition and `--sync-profile`.
 
 ## Packaging
 

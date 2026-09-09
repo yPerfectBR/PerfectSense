@@ -129,6 +129,8 @@ int ps_cpu_power_snapshot_clear(void);
 int ps_cpu_power_restore(void);
 /* presets: power|eco, balanced, performance|bp, turbo; sync_platform_profile≠0 links thermal */
 int ps_cpu_power_preset(const char *name, int sync_platform_profile);
+/* Best-effort CPU knobs for a thermal_profile name (used by ps_mode_set). */
+int ps_cpu_power_for_profile(const char *thermal_name);
 
 /* Phase 9 — FanAggressor (config shared; timer in daemon) */
 struct ps_fan_aggressor_config {

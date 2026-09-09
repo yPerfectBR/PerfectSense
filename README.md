@@ -52,6 +52,20 @@ emits D-Bus `Hotkey`; man pages; installable Arch PKGBUILD. See
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).
 
+## IMPORTANT: GPU performance (PHN16-72)
+
+Install **`nvidia-open`** and enable **`nvidia-powerd`** so Dynamic Boost can raise
+the dGPU from the default **~80W** ceiling toward **~140W** when needed:
+
+```bash
+sudo pacman -S nvidia-open
+sudo systemctl enable nvidia-powerd.service
+sudo systemctl reboot
+```
+
+PerfectSense then toggles the service with thermal profiles: **off** for
+`low-power`/`quiet`, **on** from `balanced` upward (Boost stays dynamic).
+
 ## Build
 
 ```bash

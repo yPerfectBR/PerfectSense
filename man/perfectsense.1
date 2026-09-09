@@ -34,8 +34,17 @@ Print thermal profile, AC, fans, battery/misc, RGB/logo summary.
 .B temps
 Print CPU/GPU temperatures in °C (from PerfectSense hwmon).
 .TP
+.B gpu powerd get|on|off
+Query or force
+.B nvidia\-powerd
+(Dynamic Boost). Normally driven by
+.B mode set
+(off for eco/quiet; on for balanced+).
+.TP
 .BI "mode get" \fR "|" " mode set " name
-Get or set the firmware thermal profile.
+Get or set the firmware thermal profile (also syncs
+.B nvidia\-powerd
+on Helios).
 Names:
 .BR low\-power ,
 .BR quiet ,

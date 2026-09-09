@@ -51,7 +51,11 @@ int ps_status_read(struct ps_status *out);
 int ps_mode_get(char *buf, size_t buflen);
 int ps_mode_set(const char *name);
 
-/* NVIDIA PowerMizer Preferred Mode (0=normal, 1=max, 2=auto) */
+/* NVIDIA GPU (Helios): nvidia-powerd Dynamic Boost + optional PowerMizer */
+int ps_gpu_powerd_get(int *enabled);
+int ps_gpu_powerd_set(int enabled);
+int ps_gpu_powerd_for_profile(const char *thermal_name);
+
 int ps_gpu_powermizer_get(int *mode);
 int ps_gpu_powermizer_set(int mode);
 int ps_gpu_powermizer_for_profile(const char *thermal_name);

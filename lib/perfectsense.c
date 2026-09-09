@@ -285,8 +285,8 @@ int ps_mode_set(const char *name)
 	if (err)
 		return err;
 
-	/* Helios: sync NVIDIA Preferred Mode to the thermal profile. */
-	(void)ps_gpu_powermizer_for_profile(normalized);
+	/* Helios: sync nvidia-powerd (Dynamic Boost ~80W↔~140W). */
+	(void)ps_gpu_powerd_for_profile(normalized);
 	return 0;
 }
 

@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /*
- * NVIDIA PowerMizer Preferred Mode for Predator Helios (PHN16-72).
+ * NVIDIA GPU helpers for Predator Helios PHN16-72.
  *
- * Maps thermal profiles → GPUPowerMizerMode via nvidia-settings:
- *   low-power / quiet          → Normal (0)
- *   balanced                   → Auto (2)
- *   balanced-performance /
- *   performance                → Prefer Maximum Performance (1)
+ * Primary policy (nekro/README guidance): nvidia-powerd Dynamic Boost.
+ *   low-power / quiet → stop  nvidia-powerd  (~80W firmware default)
+ *   balanced and up   → start nvidia-powerd  (up to ~140W when needed)
  *
- * Note: on pure Wayland, NV-CONTROL is often unavailable and the attribute
- * may not stick; we still apply best-effort and return an error if verify fails.
+ * PowerMizer Preferred Mode remains available via CLI but is best-effort on
+ * Wayland (NV-CONTROL often does not stick).
  */
 
 #define _POSIX_C_SOURCE 200809L
@@ -23,12 +21,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-/* NVIDIA GPUPowerMizerMode values (nvidia-settings) */
-#define PS_PM_NORMAL	0 /* UI: Normal / Adaptive */
-#define PS_PM_MAX	1 /* UI: Prefer Maximum Performance */
-#define PS_PM_AUTO	2 /* UI: Auto */
+#define PS_POWERD_UNIT "nvidia-powerd.service"
 
-static int run_nvidia_settings(char *const argv[])
+/* NVIDIA GPUPowerMizerMode values (nvidia-settings) */
+#define PS_PM_NORMAL 0
+#define PS_PM_MAX    1
+#define PS_PM_AUTO   2
+
+static int run_cmd(char *const argv[])
 {
 	pid_t pid;
 	int status;
@@ -37,7 +37,7 @@ static int run_nvidia_settings(char *const argv[])
 	if (pid < 0)
 		return -errno;
 	if (pid == 0) {
-		execvp("nvidia-settings", argv);
+		execvp(argv[0], argv);
 		_exit(127);
 	}
 	if (waitpid(pid, &status, 0) < 0)
@@ -49,6 +49,72 @@ static int run_nvidia_settings(char *const argv[])
 	return -EIO;
 }
 
+/* ---------- nvidia-powerd (Dynamic Boost / TGP headroom) ---------- */
+
+int ps_gpu_powerd_get(int *enabled)
+{
+	char *argv[] = { "systemctl", "is-active", "--quiet", PS_POWERD_UNIT,
+			 NULL };
+	int err;
+
+	if (!enabled)
+		return -EINVAL;
+
+	err = run_cmd(argv);
+	if (err == 0) {
+		*enabled = 1;
+		return 0;
+	}
+	/* inactive / failed / missing → treat as off when unit exists */
+	if (err == -EIO || err == -ENOENT) {
+		*enabled = 0;
+		return 0;
+	}
+	return err;
+}
+
+int ps_gpu_powerd_set(int enabled)
+{
+	char *argv_start[] = { "systemctl", "start", PS_POWERD_UNIT, NULL };
+	char *argv_stop[] = { "systemctl", "stop", PS_POWERD_UNIT, NULL };
+	int err;
+	int cur = -1;
+
+	err = run_cmd(enabled ? argv_start : argv_stop);
+	if (err)
+		return err;
+
+	err = ps_gpu_powerd_get(&cur);
+	if (err)
+		return err;
+	if ((cur != 0) != (enabled != 0))
+		return -EAGAIN;
+	return 0;
+}
+
+int ps_gpu_powerd_for_profile(const char *thermal_name)
+{
+	int enable;
+
+	if (!thermal_name || !*thermal_name)
+		return -EINVAL;
+
+	if (!strcmp(thermal_name, "low-power") ||
+	    !strcmp(thermal_name, "quiet") || !strcmp(thermal_name, "eco"))
+		enable = 0;
+	else if (!strcmp(thermal_name, "balanced") ||
+		 !strcmp(thermal_name, "balanced-performance") ||
+		 !strcmp(thermal_name, "performance") ||
+		 !strcmp(thermal_name, "bp") || !strcmp(thermal_name, "turbo"))
+		enable = 1;
+	else
+		return -EINVAL;
+
+	return ps_gpu_powerd_set(enable);
+}
+
+/* ---------- PowerMizer Preferred Mode (optional / X11-ish) ---------- */
+
 int ps_gpu_powermizer_get(int *mode)
 {
 	FILE *fp;
@@ -58,10 +124,6 @@ int ps_gpu_powermizer_get(int *mode)
 	if (!mode)
 		return -EINVAL;
 
-	/*
-	 * Prefer machine-readable -t; fall back to parsing full query.
-	 * Runs in the caller's environment (DISPLAY / WAYLAND).
-	 */
 	fp = popen("nvidia-settings -q GpuPowerMizerMode -t 2>/dev/null", "r");
 	if (!fp)
 		return -errno;
@@ -93,11 +155,10 @@ int ps_gpu_powermizer_set(int mode)
 	argv[2] = attr;
 	argv[3] = NULL;
 
-	err = run_nvidia_settings(argv);
+	err = run_cmd(argv);
 	if (err)
 		return err;
 
-	/* Verify — on broken NV-CONTROL paths assign "succeeds" but stays put. */
 	err = ps_gpu_powermizer_get(&got);
 	if (err)
 		return err;

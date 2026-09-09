@@ -52,19 +52,25 @@ Packaging installs:
 - `modules-load.d`: load `perfectsense`
 - `perfectsensed.service` + `.path`
 
-## NVIDIA PowerMizer (Helios)
+## IMPORTANT: GPU performance (PHN16-72)
 
-Changing thermal profile also sets Preferred Mode via `nvidia-settings`:
+The discrete NVIDIA GPU defaults to an **~80W** ceiling. Enabling
+`nvidia-powerd` (Dynamic Boost) allows up to **~140W** when the workload needs
+it.
 
-| Thermal | PowerMizer |
-|---------|------------|
-| `low-power` / `quiet` | Normal (0) |
-| `balanced` | Auto (2) |
-| `balanced-performance` / `performance` | Prefer Maximum (1) |
-
-```text
-perfectsense gpu powermizer get|set normal|auto|max
+```bash
+sudo pacman -S nvidia-open
+sudo systemctl enable nvidia-powerd.service
+sudo systemctl reboot
 ```
 
-On some Wayland sessions NV-CONTROL cannot change the attribute (set appears
-to succeed but the value stays); thermal profile still applies.
+PerfectSense then **starts/stops** `nvidia-powerd` with the thermal profile:
+
+| Profile | `nvidia-powerd` |
+|---------|-----------------|
+| `low-power` / `quiet` | **off** (~80W) |
+| `balanced` and above | **on** (Dynamic Boost) |
+
+```text
+perfectsense gpu powerd get|on|off
+```

@@ -908,6 +908,8 @@ int main(int argc, char **argv)
 
 	if (ps_mode_get(g_last_profile, sizeof(g_last_profile)) < 0)
 		g_last_profile[0] = '\0';
+	else
+		(void)ps_gpu_powerd_for_profile(g_last_profile);
 
 	r = fa_runtime_init();
 	if (r < 0)

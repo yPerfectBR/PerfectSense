@@ -25,16 +25,12 @@ perfectsense fan get   # inclui rpm
 `event inject` / teclas físicas → D-Bus `Hotkey`. Mode cicla (salta rejeitados);
 turbo só em AC (toggle).
 
-## NVIDIA PowerMizer
+## GPU (nvidia-powerd)
 
-`mode set` / tecla de modos também pedem Preferred Mode:
+Como no nekro: `nvidia-open` + `nvidia-powerd` para ~80 W→~140 W.
 
-| Perfil | PowerMizer |
-|--------|------------|
-| low-power / quiet | Normal |
-| balanced | Auto |
-| bp / performance | Prefer Maximum |
+PerfectSense: **off** em `low-power`/`quiet`; **on** de `balanced` para cima.
 
-`perfectsense gpu powermizer get|set …`
-
-Em Wayland puro o NV-CONTROL pode não aplicar (fica em Normal).
+```text
+perfectsense gpu powerd get|on|off
+```

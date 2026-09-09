@@ -42,10 +42,29 @@ performed). Prefer anonymized / hardware-relevant data only.
 
 ## Firmware behavior notes (PHN16-72 class)
 
-Detailed method IDs, GUID strings, and quirks will be filled here as they are
-re-verified during PerfectSense development. Expected topics:
+### Verified in Phase 1 (read path)
 
-- Thermal profile enumeration and AC-only restrictions for aggressive modes
+| Item | Value |
+|------|-------|
+| DMI product name (observed) | `Predator PHN16-72` |
+| Gaming WMI GUID | `7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56` |
+| Get misc setting method ID | `23` |
+| Misc index: platform profile | `0x000B` |
+| Input packing | index in bits 7:0; value returned in bits 15:8; status bits 7:0 of result must be 0 |
+
+Thermal profile firmware codes → PerfectSense names:
+
+| Code | Name |
+|------|------|
+| `0x06` | `low-power` (Eco) |
+| `0x00` | `quiet` |
+| `0x01` | `balanced` |
+| `0x04` | `balanced-performance` |
+| `0x05` | `performance` (Turbo) |
+
+### Still to document as phases land
+
+- Set misc method (`22`) and AC-only restrictions for aggressive modes
 - Fan auto vs manual duty; live duty read vs last-written target
 - Four-zone keyboard and lid logo payload sizes / selectors
 - Battery charge limit semantics

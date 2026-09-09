@@ -33,10 +33,30 @@ junto a cada ficheiro (ferramenta, SO, BIOS, ação que gerou o tráfego).
 
 ## Notas de firmware (classe PHN16-72)
 
-IDs de método, GUIDs e quirks serão preenchidos à medida que forem
-re-verificados no desenvolvimento. Tópicos esperados: perfis térmicos e
-restrições em AC; auto vs duty manual; RGB/logo; charge limit; códigos de tecla
-turbo/modo.
+### Verificado na Fase 1 (leitura)
+
+| Item | Valor |
+|------|-------|
+| DMI product name (observado) | `Predator PHN16-72` |
+| GUID WMI gaming | `7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56` |
+| Method ID get misc | `23` |
+| Índice misc: platform profile | `0x000B` |
+| Empacotamento | índice bits 7:0; valor nos bits 15:8 do resultado; status bits 7:0 = 0 |
+
+Códigos de perfil térmico → nomes PerfectSense:
+
+| Código | Nome |
+|--------|------|
+| `0x06` | `low-power` (Eco) |
+| `0x00` | `quiet` |
+| `0x01` | `balanced` |
+| `0x04` | `balanced-performance` |
+| `0x05` | `performance` (Turbo) |
+
+### Ainda a documentar
+
+- Set misc (`22`) e restrições em AC
+- Fans auto vs duty; RGB/logo; charge limit; tecla turbo/modo
 
 ## Docs relacionadas
 

@@ -61,6 +61,7 @@ flowchart TB
 | Platform profile | standard `/sys/firmware/acpi/platform_profile` | Desktop-wide convention (`power-profiles-daemon`, etc.) |
 | Shared library | `libperfectsense` | C API for UIs — same ABI as sysfs, no process hop |
 | CLI | `perfectsense` | Human manual tool only |
+| Daemon | `perfectsensed` | Hotkeys / AC / FanAggressor policy (not RPC) |
 
 We intentionally **do not** reuse `predator_sense` as the primary sysfs name:
 this project is a clean replacement stack, not a drop-in path clone for older

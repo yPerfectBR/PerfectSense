@@ -128,6 +128,163 @@ static ssize_t fan_speed_store(struct device *dev,
 }
 static DEVICE_ATTR_RW(fan_speed);
 
+static ssize_t battery_limiter_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	u8 on;
+	int err = ps_battery_limiter_get(&on);
+
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%u\n", on);
+}
+
+static ssize_t battery_limiter_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	unsigned int val;
+	int err;
+
+	if (kstrtouint(buf, 0, &val) || val > 1)
+		return -EINVAL;
+	err = ps_battery_limiter_set((u8)val);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(battery_limiter);
+
+static ssize_t battery_calibration_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	u8 on;
+	int err = ps_battery_calibration_get(&on);
+
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%u\n", on);
+}
+
+static ssize_t battery_calibration_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	unsigned int val;
+	int err;
+
+	if (kstrtouint(buf, 0, &val) || val > 1)
+		return -EINVAL;
+	err = ps_battery_calibration_set((u8)val);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(battery_calibration);
+
+static ssize_t usb_charging_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	int minutes;
+	int err = ps_usb_charging_get(&minutes);
+
+	if (err == -ENODATA)
+		return sysfs_emit(buf, "-1\n");
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%d\n", minutes);
+}
+
+static ssize_t usb_charging_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	int minutes;
+	int err;
+
+	if (kstrtoint(buf, 0, &minutes))
+		return -EINVAL;
+	err = ps_usb_charging_set(minutes);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(usb_charging);
+
+static ssize_t lcd_override_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	int on;
+	int err = ps_lcd_override_get(&on);
+
+	if (err == -ENODATA)
+		return sysfs_emit(buf, "-1\n");
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%d\n", on);
+}
+
+static ssize_t lcd_override_store(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t count)
+{
+	unsigned int val;
+	int err;
+
+	if (kstrtouint(buf, 0, &val) || val > 1)
+		return -EINVAL;
+	err = ps_lcd_override_set((u8)val);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(lcd_override);
+
+static ssize_t backlight_timeout_show(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	int on;
+	int err = ps_backlight_timeout_get(&on);
+
+	if (err == -ENODATA)
+		return sysfs_emit(buf, "-1\n");
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%d\n", on);
+}
+
+static ssize_t backlight_timeout_store(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
+{
+	unsigned int val;
+	int err;
+
+	if (kstrtouint(buf, 0, &val) || val > 1)
+		return -EINVAL;
+	err = ps_backlight_timeout_set((u8)val);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(backlight_timeout);
+
+static ssize_t boot_animation_sound_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	u8 on;
+	int err = ps_boot_animation_sound_get(&on);
+
+	if (err)
+		return err;
+	return sysfs_emit(buf, "%u\n", on);
+}
+
+static ssize_t boot_animation_sound_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	unsigned int val;
+	int err;
+
+	if (kstrtouint(buf, 0, &val) || val > 1)
+		return -EINVAL;
+	err = ps_boot_animation_sound_set((u8)val);
+	return err ? err : count;
+}
+static DEVICE_ATTR_RW(boot_animation_sound);
+
 static struct attribute *ps_attrs[] = {
 	&dev_attr_api_version.attr,
 	&dev_attr_thermal_profile.attr,
@@ -135,6 +292,12 @@ static struct attribute *ps_attrs[] = {
 	&dev_attr_ac_online.attr,
 	&dev_attr_fan_duty.attr,
 	&dev_attr_fan_speed.attr,
+	&dev_attr_battery_limiter.attr,
+	&dev_attr_battery_calibration.attr,
+	&dev_attr_usb_charging.attr,
+	&dev_attr_lcd_override.attr,
+	&dev_attr_backlight_timeout.attr,
+	&dev_attr_boot_animation_sound.attr,
 	NULL,
 };
 

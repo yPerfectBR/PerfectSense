@@ -94,8 +94,10 @@ When disabled (default): firmware/EC auto curve only; daemon does not run a
 thermal timer.
 
 When enabled: `perfectsensed` uses `timerfd` to apply an additive offset on top
-of captured native duty — engage/disengage thresholds with hysteresis.
-Disabling offset cancels the timer and returns fans to auto.
+of a **temperature-estimated** native duty (this EC’s `fan_duty` sysfs in auto
+echoes the last custom command, not live PWM). While engaged it re-applies
+`fan_set` every tick so thermal profile changes cannot silently steal control.
+Disengage restores firmware auto.
 
 ## CPU power controls
 

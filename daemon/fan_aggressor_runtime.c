@@ -24,10 +24,28 @@ static int g_paused_manual;
 static time_t g_hot_since;
 static unsigned g_native_cpu;
 static unsigned g_native_gpu;
+static unsigned g_peak_cpu;
+static unsigned g_peak_gpu;
 static unsigned g_last_cpu;
 static unsigned g_last_gpu;
 static int g_temp_cpu;
 static int g_temp_gpu;
+
+static void write_runtime_status(void)
+{
+	FILE *f;
+
+	f = fopen("/run/perfectsense/fan-aggressor.status", "w");
+	if (!f)
+		return;
+	fprintf(f,
+		"enabled=%d active=%d paused=%d temp_cpu=%d temp_gpu=%d "
+		"native=%u,%u applied=%u,%u peak=%u,%u\n",
+		g_cfg.enabled, g_active, g_paused_manual, g_temp_cpu,
+		g_temp_gpu, g_native_cpu, g_native_gpu, g_last_cpu, g_last_gpu,
+		g_peak_cpu, g_peak_gpu);
+	fclose(f);
+}
 
 static int arm_timer(int interval_ms)
 {
@@ -79,6 +97,8 @@ int fa_runtime_init(void)
 	g_owned = 0;
 	g_paused_manual = 0;
 	g_hot_since = 0;
+	g_peak_cpu = 0;
+	g_peak_gpu = 0;
 	g_timer_fd = -1;
 	if (g_cfg.enabled)
 		return arm_timer(g_cfg.interval_ms);
@@ -189,10 +209,27 @@ int fa_runtime_reload(void)
 	return apply_loaded_cfg(was_enabled);
 }
 
+static unsigned estimate_native_duty(int tmax_c)
+{
+	/* PHN16-72: GetGamingFanSpeed in firmware-auto echoes last custom
+	 * command, not live PWM. Approximate EC intent from temperature.
+	 */
+	int d;
+
+	if (tmax_c < 60)
+		return 30;
+	d = 30 + (tmax_c - 60) * 2; /* 30%@60 → 90%@90 → 110%@100 */
+	if (d < 30)
+		d = 30;
+	if (d > 95)
+		d = 95;
+	return (unsigned)d;
+}
+
 void fa_runtime_on_timer(void)
 {
 	uint64_t exp;
-	unsigned target_cpu, target_gpu, duty_c, duty_g, apply_c, apply_g;
+	unsigned target_cpu, target_gpu, apply_c, apply_g, est;
 	int cpu_c = 0, gpu_c = 0, tmax, disengage_c;
 	time_t now;
 
@@ -212,6 +249,7 @@ void fa_runtime_on_timer(void)
 			g_active = 0;
 			g_owned = 0;
 			g_hot_since = 0;
+			write_runtime_status();
 			return;
 		}
 	}
@@ -225,16 +263,22 @@ void fa_runtime_on_timer(void)
 	disengage_c = g_cfg.engage_c - g_cfg.hysteresis_c;
 	now = time(NULL);
 
+	est = estimate_native_duty(tmax);
+	g_native_cpu = est;
+	g_native_gpu = est > 5 ? est - 5 : est;
+	if (g_native_cpu > g_peak_cpu)
+		g_peak_cpu = g_native_cpu;
+	if (g_native_gpu > g_peak_gpu)
+		g_peak_gpu = g_native_gpu;
+
 	if (tmax < g_cfg.engage_c) {
 		g_hot_since = 0;
-		if (g_active && tmax <= disengage_c)
+		if (g_active && tmax <= disengage_c) {
 			disengage();
-		else if (!g_active) {
-			if (ps_fan_duty_get(&duty_c, &duty_g) == 0) {
-				g_native_cpu = duty_c;
-				g_native_gpu = duty_g;
-			}
+			g_peak_cpu = 0;
+			g_peak_gpu = 0;
 		}
+		write_runtime_status();
 		return;
 	}
 
@@ -242,11 +286,9 @@ void fa_runtime_on_timer(void)
 		g_hot_since = now;
 
 	if (!g_active) {
-		if ((now - g_hot_since) < g_cfg.hold_sec)
+		if ((now - g_hot_since) < g_cfg.hold_sec) {
+			write_runtime_status();
 			return;
-		if (ps_fan_duty_get(&duty_c, &duty_g) == 0) {
-			g_native_cpu = duty_c;
-			g_native_gpu = duty_g;
 		}
 		ps_fan_aggressor_compute_duty(&g_cfg, g_native_cpu, g_native_gpu,
 					     &apply_c, &apply_g);
@@ -256,16 +298,23 @@ void fa_runtime_on_timer(void)
 			g_owned = 1;
 			g_active = 1;
 		}
+		write_runtime_status();
 		return;
 	}
 
+	/* Engaged: recompute from temp estimate + offset; never lower while hot.
+	 * Always re-apply — mode/EC changes can silently steal fan ownership.
+	 */
 	ps_fan_aggressor_compute_duty(&g_cfg, g_native_cpu, g_native_gpu,
 				     &apply_c, &apply_g);
-	if (apply_c != g_last_cpu || apply_g != g_last_gpu) {
-		if (ps_fan_set(apply_c, apply_g) == 0) {
-			g_last_cpu = apply_c;
-			g_last_gpu = apply_g;
-			g_owned = 1;
-		}
+	if (apply_c < g_last_cpu)
+		apply_c = g_last_cpu;
+	if (apply_g < g_last_gpu)
+		apply_g = g_last_gpu;
+	if (ps_fan_set(apply_c, apply_g) == 0) {
+		g_last_cpu = apply_c;
+		g_last_gpu = apply_g;
+		g_owned = 1;
 	}
+	write_runtime_status();
 }

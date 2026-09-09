@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * PerfectSense — core init (Phase 1: probe + profile get).
+ * PerfectSense — core init (Phase 2: profile set + platform_profile).
  *
  * Unload conflicting Acer gaming WMI modules before loading this driver.
  */
@@ -18,6 +18,7 @@ static struct platform_device *ps_pdev;
 static int __init perfectsense_init(void)
 {
 	u8 tp;
+	bool on_ac;
 	int err;
 
 	if (!ps_dmi_supported()) {
@@ -30,12 +31,15 @@ static int __init perfectsense_init(void)
 		return -ENODEV;
 	}
 
-	/* Sanity: firmware must answer a misc get */
 	err = ps_thermal_profile_get(&tp);
 	if (err) {
 		pr_err("thermal profile get failed: %d\n", err);
 		return err;
 	}
+
+	err = ps_wmi_ac_online(&on_ac);
+	if (err)
+		pr_warn("AC status read failed: %d\n", err);
 
 	ps_pdev = platform_device_register_simple("perfectsense", PLATFORM_DEVID_NONE,
 						  NULL, 0);
@@ -47,18 +51,30 @@ static int __init perfectsense_init(void)
 	err = ps_sysfs_register(&ps_pdev->dev);
 	if (err) {
 		pr_err("sysfs register failed: %d\n", err);
-		platform_device_unregister(ps_pdev);
-		ps_pdev = NULL;
-		return err;
+		goto err_pdev;
 	}
 
-	pr_info("loaded (api_version=%u, thermal_profile=%s / 0x%02x)\n",
-		PS_API_VERSION, ps_thermal_profile_name(tp), tp);
+	err = ps_platform_profile_register(&ps_pdev->dev);
+	if (err) {
+		pr_err("platform_profile register failed: %d\n", err);
+		goto err_sysfs;
+	}
+
+	pr_info("loaded (api_version=%u, thermal_profile=%s / 0x%02x, ac=%d)\n",
+		PS_API_VERSION, ps_thermal_profile_name(tp), tp, on_ac ? 1 : 0);
 	return 0;
+
+err_sysfs:
+	ps_sysfs_unregister(&ps_pdev->dev);
+err_pdev:
+	platform_device_unregister(ps_pdev);
+	ps_pdev = NULL;
+	return err;
 }
 
 static void __exit perfectsense_exit(void)
 {
+	ps_platform_profile_unregister();
 	if (ps_pdev) {
 		ps_sysfs_unregister(&ps_pdev->dev);
 		platform_device_unregister(ps_pdev);
@@ -73,5 +89,5 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.1.0");
+MODULE_VERSION("0.2.0");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");

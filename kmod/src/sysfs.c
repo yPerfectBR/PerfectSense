@@ -5,6 +5,7 @@
 
 #include <linux/device.h>
 #include <linux/module.h>
+#include <linux/string.h>
 #include <linux/sysfs.h>
 
 #include "perfectsense.h"
@@ -28,7 +29,32 @@ static ssize_t thermal_profile_show(struct device *dev,
 
 	return sysfs_emit(buf, "%s\n", ps_thermal_profile_name(tp));
 }
-static DEVICE_ATTR_RO(thermal_profile);
+
+static ssize_t thermal_profile_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	char name[32];
+	u8 tp;
+	int err;
+	size_t len;
+
+	len = min(count, sizeof(name) - 1);
+	memcpy(name, buf, len);
+	name[len] = '\0';
+	strim(name);
+
+	err = ps_thermal_profile_from_name(name, &tp);
+	if (err)
+		return err;
+
+	err = ps_thermal_profile_set(tp);
+	if (err)
+		return err;
+
+	return count;
+}
+static DEVICE_ATTR_RW(thermal_profile);
 
 static ssize_t thermal_profile_raw_show(struct device *dev,
 					struct device_attribute *attr, char *buf)
@@ -44,10 +70,25 @@ static ssize_t thermal_profile_raw_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(thermal_profile_raw);
 
+static ssize_t ac_online_show(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	bool online;
+	int err;
+
+	err = ps_wmi_ac_online(&online);
+	if (err)
+		return err;
+
+	return sysfs_emit(buf, "%u\n", online ? 1 : 0);
+}
+static DEVICE_ATTR_RO(ac_online);
+
 static struct attribute *ps_attrs[] = {
 	&dev_attr_api_version.attr,
 	&dev_attr_thermal_profile.attr,
 	&dev_attr_thermal_profile_raw.attr,
+	&dev_attr_ac_online.attr,
 	NULL,
 };
 

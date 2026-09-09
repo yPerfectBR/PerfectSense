@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * PerfectSense — WMI helpers (gaming misc settings).
+ * PerfectSense — WMI helpers (gaming misc + AC status).
  */
 
 #include <linux/acpi.h>
@@ -10,6 +10,37 @@
 #include <linux/wmi.h>
 
 #include "perfectsense.h"
+
+static int ps_wmi_eval_u64(u32 method_id, u64 in, u64 *out)
+{
+	struct acpi_buffer input = { sizeof(in), &in };
+	struct acpi_buffer result = { ACPI_ALLOCATE_BUFFER, NULL };
+	union acpi_object *obj;
+	acpi_status status;
+	u64 tmp = 0;
+
+	status = wmi_evaluate_method(PS_WMID_GUID4, 0, method_id, &input, &result);
+	if (ACPI_FAILURE(status))
+		return -EIO;
+
+	obj = result.pointer;
+	if (obj) {
+		if (obj->type == ACPI_TYPE_BUFFER) {
+			if (obj->buffer.length == sizeof(u32))
+				tmp = *(u32 *)obj->buffer.pointer;
+			else if (obj->buffer.length >= sizeof(u64))
+				tmp = get_unaligned_le64(obj->buffer.pointer);
+		} else if (obj->type == ACPI_TYPE_INTEGER) {
+			tmp = obj->integer.value;
+		}
+	}
+
+	if (out)
+		*out = tmp;
+
+	kfree(result.pointer);
+	return 0;
+}
 
 static int ps_wmi_eval_u32_in_u64_out(u32 method_id, u32 in, u64 *out)
 {
@@ -70,25 +101,37 @@ int ps_wmi_get_misc(u8 index, u8 *value)
 	return 0;
 }
 
-int ps_thermal_profile_get(u8 *tp)
+int ps_wmi_set_misc(u8 index, u8 value)
 {
-	return ps_wmi_get_misc(PS_MISC_PLATFORM_PROFILE, tp);
+	u64 input = 0;
+	u64 result;
+	int ret;
+
+	input |= FIELD_PREP(PS_MISC_INDEX_MASK, index);
+	input |= FIELD_PREP(PS_MISC_VALUE_MASK, value);
+
+	ret = ps_wmi_eval_u64(PS_WMID_SET_MISC, input, &result);
+	if (ret < 0)
+		return ret;
+
+	if (FIELD_GET(PS_MISC_STATUS_MASK, result))
+		return -EIO;
+
+	return 0;
 }
 
-const char *ps_thermal_profile_name(u8 tp)
+int ps_wmi_ac_online(bool *online)
 {
-	switch (tp) {
-	case PS_TP_ECO:
-		return "low-power";
-	case PS_TP_QUIET:
-		return "quiet";
-	case PS_TP_BALANCED:
-		return "balanced";
-	case PS_TP_PERFORMANCE:
-		return "balanced-performance";
-	case PS_TP_TURBO:
-		return "performance";
-	default:
-		return "unknown";
-	}
+	u64 on_ac;
+	int ret;
+
+	if (!online)
+		return -EINVAL;
+
+	ret = ps_wmi_eval_u64(PS_WMID_GET_SYS_INFO, PS_CMD_BAT_STATUS, &on_ac);
+	if (ret < 0)
+		return ret;
+
+	*online = on_ac != 0;
+	return 0;
 }

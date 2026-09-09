@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSE 1 "2026-05-08" "PerfectSense 0.0.10" "User Commands"
+.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.17" "User Commands"
 .SH NAME
 perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
 .SH SYNOPSIS
@@ -10,17 +10,24 @@ perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
 .SH DESCRIPTION
 .B perfectsense
 reads and writes PerfectSense sysfs attributes via
-.BR libperfectsense (3).
+.BR libperfectsense .
 It does
 .B not
 require
 .BR perfectsensed (8)
-for get/set operations.
+for get/set operations (FanAggressor timer and hotkey policy live in the daemon).
 .PP
 The kernel module
 .B perfectsense.ko
 must be loaded and must own the Acer gaming WMI path (unload conflicting
-drivers such as out-of-tree gaming WMI modules first).
+drivers such as
+.B nekro_sense
+/
+.B acer\-wmi
+first). Prefer
+.B /usr/bin/perfectsense
+if a Pandora shim shadows the name on
+.BR PATH .
 .SH OPTIONS
 .TP
 .B \-\-json
@@ -29,17 +36,21 @@ Emit machine-readable JSON for commands that support it (notably
 .SH COMMANDS
 .TP
 .B status
-Print thermal profile, AC, fans, battery/misc, RGB/logo summary.
+Print thermal profile, AC, fans, temps/RPM, battery/misc, RGB/logo summary.
 .TP
 .B temps
-Print CPU/GPU temperatures in °C (from PerfectSense hwmon).
+Print CPU/GPU temperatures in °C (hwmon name
+.BR perfectsense ).
 .TP
 .B gpu powerd get|on|off
 Query or force
 .B nvidia\-powerd
-(Dynamic Boost). Normally driven by
+(Dynamic Boost ~80 W↔~140 W). Normally driven by
 .B mode set
 (off for eco/quiet; on for balanced+).
+.TP
+.B gpu powermizer get|set \fR...
+Best-effort NVIDIA PowerMizer Preferred Mode (often does not stick on Wayland).
 .TP
 .BI "mode get" \fR "|" " mode set " name
 Get or set the firmware thermal profile (also syncs
@@ -57,7 +68,7 @@ Aliases:
 .BR bp .
 .TP
 .BI "fan get" \fR "|" " fan set " "cpu gpu" \fR "|" " fan auto"
-Read live duty or set target duties (percent), or return fans to firmware auto.
+Read live duty/RPM or set target duties (percent), or return fans to firmware auto.
 .TP
 .BI "fan aggressor on" \fR "|" " off" \fR "|" " status" \fR "|" " reload" \fR "|" " set " key=val…
 Enable/disable FanAggressor offset mode or edit config.
@@ -67,15 +78,48 @@ and
 persist the conf and ask
 .B perfectsensed
 to reload via D\-Bus
-.BR FanAggressorReload .
-.RB ( engage_c ,
-offsets, floors, …). Persists under
-.I /etc/perfectsense/
-when writable.
+.BR FanAggressorReload
+(keys:
+.BR engage_c ,
+.BR hysteresis_c ,
+.BR hold_sec ,
+.BR interval_ms ,
+.BR offset_cpu ,
+.BR offset_gpu ,
+.BR floor_cpu ,
+.BR floor_gpu ,
+.BR enabled ).
+.TP
+.B battery get|on|off
+80% charge limiter.
+.TP
+.B battery calibration get|on|off
+Battery calibration mode.
+.TP
+.B usb get|set \fI0|10|20|30\fR
+USB charging while powered off (minutes).
+.TP
+.B lcd get|set \fI0|1\fR
+LCD override (PHN16-72: status bit 48).
+.TP
+.B kb-timeout get|set \fI0|1\fR
+Keyboard backlight 30 s idle timeout.
+.TP
+.B boot-sound get|set \fI0|1\fR
+Boot animation sound.
+.TP
+.BI "rgb get" \fR "|" " set " "z1 z2 z3 z4" " [" bri "]" \fR "|" " off"
+Four-zone static RGB.
 .TP
 .BI "rgb effect get" \fR "|" " set " csv
-Four-zone keyboard effect mode (sysfs
-.BR four_zone_mode ).
+Four-zone effect mode (
+.IR mode,speed,bri,dir,r,g,b ).
+.TP
+.BI "logo get" \fR "|" " set " RRGGBB " [" bri "] [" en "]" \fR "|" " off"
+Lid / back logo.
+.TP
+.B lights reset
+Reset lighting controller.
 .TP
 .BI "event inject " name
 Synthetic hotkey/AC event for testing
@@ -84,16 +128,7 @@ Synthetic hotkey/AC event for testing
 .BR ac\-online ,
 .BR ac\-offline ).
 .TP
-.B battery \fR...
-80% charge limiter and calibration helpers.
-.TP
-.B usb \fR... / \fBlcd \fR... / \fBkb\-timeout \fR... / \fBboot\-sound \fR...
-Misc GUID attributes exposed by the module.
-.TP
-.B rgb \fR... / \fBlogo \fR... / \fBlights reset
-Four-zone keyboard and lid logo lighting.
-.TP
-.B cpu \fR...
+.B cpu status|preset|restore|snapshot|set \fR...
 Userspace CPU power (governor, EPP, turbo, RAPL) and named presets.
 .SH ENVIRONMENT
 .TP
@@ -114,8 +149,11 @@ Primary ABI (
 .BR api_version
 and attributes).
 .TP
+.I /etc/perfectsense/fan\-aggressor.conf
+Persisted FanAggressor config (when writable).
+.TP
 .I /run/perfectsense/fan\-aggressor.conf
-FanAggressor runtime config (when used with the daemon).
+Runtime override (takes precedence).
 .SH SEE ALSO
 .BR perfectsensed (8),
 .BR busctl (1)

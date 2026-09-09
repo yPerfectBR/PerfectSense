@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.15" "System Management"
+.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.17" "System Management"
 .SH NAME
 perfectsensed \- PerfectSense system daemon (org.perfectsense.Sense1)
 .SH SYNOPSIS
@@ -66,7 +66,25 @@ on
 restores that remembered profile when possible
 .PP
 Debug injection:
-.B perfectsense event inject ac\-offline|ac\-online .
+.B perfectsense event inject
+.IR turbo|mode|ac\-offline|ac\-online
+or D\-Bus
+.BR InjectEvent .
+.SH PROPERTIES
+Thermal/fans/CPU plus misc parity with sysfs/CLI, including writable
+.BR BatteryLimiter ,
+.BR BatteryCalibration ,
+.BR UsbCharging ,
+.BR LcdOverride ,
+.BR BacklightTimeout ,
+.BR BootAnimationSound ,
+.BR NvidiaPowerd ,
+and read-only
+.BR TempCpu ,
+.BR TempGpu ,
+.BR FanRpmCpu ,
+.BR FanRpmGpu ,
+.BR RgbEffect .
 .SH SIGNALS
 .TP
 .B ProfileChanged (s)
@@ -79,8 +97,25 @@ FanAggressor enable flag changed.
 Firmware/key event name and numeric key code from the module.
 .SH METHODS
 .TP
-.B FanAggressorReload
-Re-read
+.B SetFanTarget (uu) / SetFanAuto
+Manual fan duties or firmware auto.
+.TP
+.B SetRgb (s) / SetRgbEffect (s) / SetLogo (s) / LightingReset
+Keyboard and lid lighting.
+.TP
+.B InjectEvent (s)
+Write sysfs
+.B inject_event
+(same names as the CLI).
+.TP
+.B Refresh
+Emit property-changed notifications for the Sense1 surface.
+.TP
+.B CpuPreset (sb) / CpuRestore
+Userspace CPU power presets.
+.TP
+.B FanAggressorStatus / FanAggressorReload
+Query runtime status; re-read
 .I /etc/perfectsense/fan-aggressor.conf
 and
 .I /run/perfectsense/fan-aggressor.conf
@@ -88,10 +123,14 @@ and re-arm or stop the offset timer without restarting the daemon.
 .SH FILES
 .TP
 .I /usr/lib/systemd/system/perfectsensed.service
-Unit file.
+Unit file (also
+.BR perfectsensed.path ).
 .TP
 .I /usr/share/dbus\-1/system.d/org.perfectsense.Sense1.conf
 D\-Bus policy.
+.TP
+.I /usr/share/dbus\-1/interfaces/org.perfectsense.Sense1.xml
+Introspection XML.
 .TP
 .I /run/perfectsense/
 Runtime directory (FanAggressor config).

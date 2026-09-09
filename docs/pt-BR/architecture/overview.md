@@ -4,16 +4,15 @@
 
 1. **O kernel é dono do firmware.** Todas as chamadas WMI Acer gaming ficam em
    `perfectsense.ko`. O userspace nunca invoca WMI diretamente.
-2. **Sysfs é a ABI.** Nomes e formatos estáveis; `api_version` sobe quando houver
-   mudança intencional incompatível. Apps/scripts usam sysfs/CLI — **sem D-Bus**.
-3. **Idle por omissão.** Sem poll de temperatura salvo quando o FanAggressor
-   (modo offset) estiver explicitamente ativo.
+2. **Sysfs é a ABI.** Apps/interfaces falam com **sysfs** ou **`libperfectsense`**
+   (caminho mais perto do hardware). **Sem D-Bus.** A CLI **não** é camada IPC.
+3. **Idle por omissão.** Sem poll de temperatura salvo FanAggressor ativo.
 4. **Eventos em vez de busy-wait.** Teclas/firmware → uevent/input; o daemon
-   aplica política (ciclo de modo, demote AC, turbo). UIs escutam udev/input.
-5. **Daemon root só para política.** Hotkeys/AC/FanAggressor — não é um bus RPC.
-   Get/set privilegiado: sysfs + `/usr/bin/perfectsense` (root).
-6. **PHN16-72-74VX primeiro.** Probe com gate DMI; estrutura pronta para quirks
-   futuros sem espalhar condicionais.
+   aplica política. UIs escutam udev/input.
+5. **CLI é para humanos.** `/usr/bin/perfectsense` = lanterna manual. UI **não**
+   deve fazer `system("perfectsense …")` — liga à lib ou escreve sysfs.
+6. **Daemon root só para política.** Hotkeys/AC/FanAggressor — não é RPC.
+7. **PHN16-72-74VX primeiro.**
 
 ## Caminho WMI
 

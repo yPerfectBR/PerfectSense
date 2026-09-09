@@ -52,9 +52,13 @@ daemon picks up engage/offset/interval without restart.
 
 ## Control plane
 
-**Sysfs + CLI only.** There is no `org.perfectsense.Sense1` D-Bus interface.
-UIs should call `/usr/bin/perfectsense` (root) or write sysfs; for keys use
-udev/`PerfectSense Hotkeys`.
+| Who | How |
+|-----|-----|
+| Human | `/usr/bin/perfectsense` |
+| UI / scripts | **sysfs** or **`libperfectsense`** (do not shell the CLI) |
+| Live keys | udev / input `PerfectSense Hotkeys` |
+
+`perfectsensed` only applies policy (hotkeys, AC, FA); it is not an RPC bus.
 
 ## Cutover notes
 

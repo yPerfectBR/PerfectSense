@@ -9,13 +9,21 @@ perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
 [\fIargs\fR...]
 .SH DESCRIPTION
 .B perfectsense
-reads and writes PerfectSense sysfs attributes via
+is a
+.B human
+convenience tool for manual inspection and one-shot tweaks. It reads/writes
+PerfectSense sysfs via
 .BR libperfectsense .
+Desktop UIs and automation should talk to
+.B sysfs
+or link
+.B libperfectsense
+directly — not shell out to this CLI.
 It does
 .B not
 require
 .BR perfectsensed (8)
-for get/set operations (FanAggressor timer and hotkey policy live in the daemon).
+for get/set (FanAggressor timer and hotkey policy live in the daemon).
 .PP
 The kernel module
 .B perfectsense.ko

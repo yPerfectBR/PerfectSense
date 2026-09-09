@@ -555,7 +555,7 @@ static int prop_battery_limiter(sd_bus *bus, const char *path,
 				sd_bus_message *reply, void *userdata,
 				sd_bus_error *err)
 {
-	struct ps_status st;
+	int v = -1;
 	int r;
 
 	(void)bus;
@@ -563,17 +563,80 @@ static int prop_battery_limiter(sd_bus *bus, const char *path,
 	(void)iface;
 	(void)prop;
 	(void)userdata;
-	r = ps_status_read(&st);
+	r = ps_attr_get_int("battery_limiter", &v);
 	if (r < 0)
 		return sd_bus_error_set_errno(err, -r);
-	return sd_bus_message_append(reply, "i", st.battery_limiter);
+	return sd_bus_message_append(reply, "i", v);
+}
+
+static int prop_battery_limiter_set(sd_bus *bus, const char *path,
+				    const char *iface, const char *prop,
+				    sd_bus_message *value, void *userdata,
+				    sd_bus_error *err)
+{
+	int v = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "i", &v);
+	if (r < 0)
+		return r;
+	r = ps_attr_set_int("battery_limiter", v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
+}
+
+static int prop_battery_calibration(sd_bus *bus, const char *path,
+				    const char *iface, const char *prop,
+				    sd_bus_message *reply, void *userdata,
+				    sd_bus_error *err)
+{
+	int v = -1;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_attr_get_int("battery_calibration", &v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", v);
+}
+
+static int prop_battery_calibration_set(sd_bus *bus, const char *path,
+					const char *iface, const char *prop,
+					sd_bus_message *value, void *userdata,
+					sd_bus_error *err)
+{
+	int v = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "i", &v);
+	if (r < 0)
+		return r;
+	r = ps_attr_set_int("battery_calibration", v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
 }
 
 static int prop_usb_charging(sd_bus *bus, const char *path, const char *iface,
 			     const char *prop, sd_bus_message *reply,
 			     void *userdata, sd_bus_error *err)
 {
-	struct ps_status st;
+	int v = -1;
 	int r;
 
 	(void)bus;
@@ -581,10 +644,264 @@ static int prop_usb_charging(sd_bus *bus, const char *path, const char *iface,
 	(void)iface;
 	(void)prop;
 	(void)userdata;
-	r = ps_status_read(&st);
+	r = ps_attr_get_int("usb_charging", &v);
 	if (r < 0)
 		return sd_bus_error_set_errno(err, -r);
-	return sd_bus_message_append(reply, "i", st.usb_charging);
+	return sd_bus_message_append(reply, "i", v);
+}
+
+static int prop_usb_charging_set(sd_bus *bus, const char *path,
+				 const char *iface, const char *prop,
+				 sd_bus_message *value, void *userdata,
+				 sd_bus_error *err)
+{
+	int v = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "i", &v);
+	if (r < 0)
+		return r;
+	r = ps_attr_set_int("usb_charging", v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
+}
+
+static int prop_lcd_override(sd_bus *bus, const char *path, const char *iface,
+			     const char *prop, sd_bus_message *reply,
+			     void *userdata, sd_bus_error *err)
+{
+	int v = -1;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_attr_get_int("lcd_override", &v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", v);
+}
+
+static int prop_lcd_override_set(sd_bus *bus, const char *path,
+				 const char *iface, const char *prop,
+				 sd_bus_message *value, void *userdata,
+				 sd_bus_error *err)
+{
+	int v = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "i", &v);
+	if (r < 0)
+		return r;
+	r = ps_attr_set_int("lcd_override", v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
+}
+
+static int prop_backlight_timeout(sd_bus *bus, const char *path,
+				  const char *iface, const char *prop,
+				  sd_bus_message *reply, void *userdata,
+				  sd_bus_error *err)
+{
+	int v = -1;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_attr_get_int("backlight_timeout", &v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", v);
+}
+
+static int prop_backlight_timeout_set(sd_bus *bus, const char *path,
+				      const char *iface, const char *prop,
+				      sd_bus_message *value, void *userdata,
+				      sd_bus_error *err)
+{
+	int v = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "i", &v);
+	if (r < 0)
+		return r;
+	r = ps_attr_set_int("backlight_timeout", v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
+}
+
+static int prop_boot_sound(sd_bus *bus, const char *path, const char *iface,
+			   const char *prop, sd_bus_message *reply,
+			   void *userdata, sd_bus_error *err)
+{
+	int v = -1;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_attr_get_int("boot_animation_sound", &v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", v);
+}
+
+static int prop_boot_sound_set(sd_bus *bus, const char *path, const char *iface,
+			       const char *prop, sd_bus_message *value,
+			       void *userdata, sd_bus_error *err)
+{
+	int v = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "i", &v);
+	if (r < 0)
+		return r;
+	r = ps_attr_set_int("boot_animation_sound", v);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
+}
+
+static int prop_temp_cpu(sd_bus *bus, const char *path, const char *iface,
+			 const char *prop, sd_bus_message *reply,
+			 void *userdata, sd_bus_error *err)
+{
+	int cpu = 0, gpu = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_temps_read(&cpu, &gpu);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", cpu);
+}
+
+static int prop_temp_gpu(sd_bus *bus, const char *path, const char *iface,
+			 const char *prop, sd_bus_message *reply,
+			 void *userdata, sd_bus_error *err)
+{
+	int cpu = 0, gpu = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_temps_read(&cpu, &gpu);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", gpu);
+}
+
+static int prop_fan_rpm_cpu(sd_bus *bus, const char *path, const char *iface,
+			    const char *prop, sd_bus_message *reply,
+			    void *userdata, sd_bus_error *err)
+{
+	int cpu = 0, gpu = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_fan_rpm_get(&cpu, &gpu);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", cpu);
+}
+
+static int prop_fan_rpm_gpu(sd_bus *bus, const char *path, const char *iface,
+			    const char *prop, sd_bus_message *reply,
+			    void *userdata, sd_bus_error *err)
+{
+	int cpu = 0, gpu = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_fan_rpm_get(&cpu, &gpu);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "i", gpu);
+}
+
+static int prop_nvidia_powerd(sd_bus *bus, const char *path, const char *iface,
+			      const char *prop, sd_bus_message *reply,
+			      void *userdata, sd_bus_error *err)
+{
+	int on = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_gpu_powerd_get(&on);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "b", on != 0);
+}
+
+static int prop_nvidia_powerd_set(sd_bus *bus, const char *path,
+				  const char *iface, const char *prop,
+				  sd_bus_message *value, void *userdata,
+				  sd_bus_error *err)
+{
+	int on = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "b", &on);
+	if (r < 0)
+		return r;
+	r = ps_gpu_powerd_set(on);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return 1;
 }
 
 static int prop_rgb(sd_bus *bus, const char *path, const char *iface,
@@ -691,6 +1008,72 @@ static int method_set_logo(sd_bus_message *m, void *userdata, sd_bus_error *err)
 	return sd_bus_reply_method_return(m, NULL);
 }
 
+static int prop_rgb_effect(sd_bus *bus, const char *path, const char *iface,
+			   const char *prop, sd_bus_message *reply,
+			   void *userdata, sd_bus_error *err)
+{
+	char buf[128];
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_rgb_effect_get(buf, sizeof(buf));
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "s", buf);
+}
+
+static int method_set_rgb_effect(sd_bus_message *m, void *userdata,
+				 sd_bus_error *err)
+{
+	const char *csv = NULL;
+	int r;
+
+	(void)userdata;
+	r = sd_bus_message_read(m, "s", &csv);
+	if (r < 0)
+		return r;
+	r = ps_rgb_effect_set(csv);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+				       "RgbEffect", NULL);
+	return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_lighting_reset(sd_bus_message *m, void *userdata,
+				 sd_bus_error *err)
+{
+	int r;
+
+	(void)userdata;
+	r = ps_lighting_reset();
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+				       "Rgb", "Logo", "RgbEffect", NULL);
+	return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_inject_event(sd_bus_message *m, void *userdata,
+			       sd_bus_error *err)
+{
+	const char *name = NULL;
+	int r;
+
+	(void)userdata;
+	r = sd_bus_message_read(m, "s", &name);
+	if (r < 0)
+		return r;
+	r = ps_event_inject(name);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_reply_method_return(m, NULL);
+}
+
 static int method_refresh(sd_bus_message *m, void *userdata, sd_bus_error *err)
 {
 	char profile[64];
@@ -708,8 +1091,11 @@ static int method_refresh(sd_bus_message *m, void *userdata, sd_bus_error *err)
 	sd_bus_emit_properties_changed(
 		g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "ThermalProfile",
 		"PlatformProfile", "AcOnline", "FanDutyCpu", "FanDutyGpu",
-		"FanTargetCpu", "FanTargetGpu", "FanAuto", "BatteryLimiter",
-		"UsbCharging", "Rgb", "Logo", "ApiVersion", "Available",
+		"FanTargetCpu", "FanTargetGpu", "FanAuto", "FanRpmCpu",
+		"FanRpmGpu", "TempCpu", "TempGpu", "BatteryLimiter",
+		"BatteryCalibration", "UsbCharging", "LcdOverride",
+		"BacklightTimeout", "BootAnimationSound", "Rgb", "RgbEffect",
+		"Logo", "NvidiaPowerd", "ApiVersion", "Available",
 		"CpuGovernor", "CpuEpp", "CpuTurbo", "CpuMaxPerfPct",
 		"CpuPl1Uw", "CpuPl2Uw", NULL);
 	return sd_bus_reply_method_return(m, NULL);
@@ -959,10 +1345,36 @@ static const sd_bus_vtable sense1_vtable[] = {
 	SD_BUS_PROPERTY("FanTargetCpu", "u", prop_fan_target_cpu, 0, 0),
 	SD_BUS_PROPERTY("FanTargetGpu", "u", prop_fan_target_gpu, 0, 0),
 	SD_BUS_PROPERTY("FanAuto", "b", prop_fan_auto, 0, 0),
-	SD_BUS_PROPERTY("BatteryLimiter", "i", prop_battery_limiter, 0, 0),
-	SD_BUS_PROPERTY("UsbCharging", "i", prop_usb_charging, 0, 0),
+	SD_BUS_PROPERTY("FanRpmCpu", "i", prop_fan_rpm_cpu, 0, 0),
+	SD_BUS_PROPERTY("FanRpmGpu", "i", prop_fan_rpm_gpu, 0, 0),
+	SD_BUS_PROPERTY("TempCpu", "i", prop_temp_cpu, 0, 0),
+	SD_BUS_PROPERTY("TempGpu", "i", prop_temp_gpu, 0, 0),
+	SD_BUS_WRITABLE_PROPERTY("BatteryLimiter", "i", prop_battery_limiter,
+				 prop_battery_limiter_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_WRITABLE_PROPERTY("BatteryCalibration", "i",
+				 prop_battery_calibration,
+				 prop_battery_calibration_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_WRITABLE_PROPERTY("UsbCharging", "i", prop_usb_charging,
+				 prop_usb_charging_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_WRITABLE_PROPERTY("LcdOverride", "i", prop_lcd_override,
+				 prop_lcd_override_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_WRITABLE_PROPERTY("BacklightTimeout", "i",
+				 prop_backlight_timeout,
+				 prop_backlight_timeout_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_WRITABLE_PROPERTY("BootAnimationSound", "i", prop_boot_sound,
+				 prop_boot_sound_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_PROPERTY("Rgb", "s", prop_rgb, 0, 0),
+	SD_BUS_PROPERTY("RgbEffect", "s", prop_rgb_effect, 0, 0),
 	SD_BUS_PROPERTY("Logo", "s", prop_logo, 0, 0),
+	SD_BUS_WRITABLE_PROPERTY("NvidiaPowerd", "b", prop_nvidia_powerd,
+				 prop_nvidia_powerd_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_PROPERTY("CpuGovernor", "s", prop_cpu_governor, 0, 0),
 	SD_BUS_PROPERTY("CpuEpp", "s", prop_cpu_epp, 0, 0),
 	SD_BUS_PROPERTY("CpuTurbo", "b", prop_cpu_turbo, 0, 0),
@@ -976,7 +1388,13 @@ static const sd_bus_vtable sense1_vtable[] = {
 		      SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_METHOD("SetRgb", "s", NULL, method_set_rgb,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_METHOD("SetRgbEffect", "s", NULL, method_set_rgb_effect,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_METHOD("SetLogo", "s", NULL, method_set_logo,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_METHOD("LightingReset", NULL, NULL, method_lighting_reset,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_METHOD("InjectEvent", "s", NULL, method_inject_event,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_METHOD("Refresh", NULL, NULL, method_refresh,
 		      SD_BUS_VTABLE_UNPRIVILEGED),

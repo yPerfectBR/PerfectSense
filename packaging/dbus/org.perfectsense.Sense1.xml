@@ -12,10 +12,20 @@
     <property name="FanTargetCpu" type="u" access="read"/>
     <property name="FanTargetGpu" type="u" access="read"/>
     <property name="FanAuto" type="b" access="read"/>
-    <property name="BatteryLimiter" type="i" access="read"/>
-    <property name="UsbCharging" type="i" access="read"/>
+    <property name="FanRpmCpu" type="i" access="read"/>
+    <property name="FanRpmGpu" type="i" access="read"/>
+    <property name="TempCpu" type="i" access="read"/>
+    <property name="TempGpu" type="i" access="read"/>
+    <property name="BatteryLimiter" type="i" access="readwrite"/>
+    <property name="BatteryCalibration" type="i" access="readwrite"/>
+    <property name="UsbCharging" type="i" access="readwrite"/>
+    <property name="LcdOverride" type="i" access="readwrite"/>
+    <property name="BacklightTimeout" type="i" access="readwrite"/>
+    <property name="BootAnimationSound" type="i" access="readwrite"/>
     <property name="Rgb" type="s" access="read"/>
+    <property name="RgbEffect" type="s" access="read"/>
     <property name="Logo" type="s" access="read"/>
+    <property name="NvidiaPowerd" type="b" access="readwrite"/>
     <property name="CpuGovernor" type="s" access="read"/>
     <property name="CpuEpp" type="s" access="read"/>
     <property name="CpuTurbo" type="b" access="read"/>
@@ -32,8 +42,15 @@
     <method name="SetRgb">
       <arg direction="in" type="s" name="per_zone_csv"/>
     </method>
+    <method name="SetRgbEffect">
+      <arg direction="in" type="s" name="effect_csv"/>
+    </method>
     <method name="SetLogo">
       <arg direction="in" type="s" name="color_csv"/>
+    </method>
+    <method name="LightingReset"/>
+    <method name="InjectEvent">
+      <arg direction="in" type="s" name="event"/>
     </method>
     <method name="Refresh"/>
     <method name="CpuPreset">

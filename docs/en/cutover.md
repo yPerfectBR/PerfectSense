@@ -44,11 +44,14 @@ Then verify:
 lsmod | grep -E 'perfect|nekro'
 systemctl is-enabled perfectsensed.path perfectsensed.service
 systemctl status perfectsensed --no-pager | head
-perfectsense status
-perfectsense gpu powerd get
+/usr/bin/perfectsense status
+/usr/bin/perfectsense gpu powerd get
 ```
 
 **Expected:** only `perfectsense` in `lsmod`; daemon active; `api_version` 6.
+
+If `perfectsense` on your `PATH` still resolves to a Pandora/`~/.local/bin`
+shim, call `/usr/bin/perfectsense` explicitly (or remove/rename the local shim).
 
 GPU Dynamic Boost prerequisite (once per machine):
 

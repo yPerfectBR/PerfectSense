@@ -22,8 +22,11 @@ Verificar:
 ```bash
 lsmod | grep -E 'perfect|nekro'
 systemctl status perfectsensed --no-pager | head
-perfectsense status
+/usr/bin/perfectsense status
 ```
+
+Se `perfectsense` no `PATH` ainda for um shim do Pandora/`~/.local/bin`, use
+`/usr/bin/perfectsense` (ou remova/renomeie o shim local).
 
 ## Cutover rápido a partir do git
 

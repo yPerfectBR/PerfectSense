@@ -37,7 +37,12 @@ sha256sums=()
 
 prepare() {
   if [[ -n ${PERFECTSENSE_SRC:-} ]]; then
-    _srcdir=$(cd "$PERFECTSENSE_SRC" && pwd)
+    # Resolve relative paths against the PKGBUILD directory (startdir), not $srcdir.
+    if [[ ${PERFECTSENSE_SRC} != /* ]]; then
+      _srcdir=$(cd "${startdir}/${PERFECTSENSE_SRC}" && pwd)
+    else
+      _srcdir=$(cd "${PERFECTSENSE_SRC}" && pwd)
+    fi
   else
     _srcdir=$(cd "${startdir}/../.." && pwd)
   fi

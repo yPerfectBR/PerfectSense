@@ -27,3 +27,10 @@ modules.order
 # Python (none expected; ignore local noise)
 __pycache__/
 *.pyc
+
+# Arch packaging artifacts (makepkg)
+/packaging/arch/pkg/
+/packaging/arch/src/
+/packaging/arch/*.pkg.tar.zst
+/packaging/arch/*.pkg.tar.xz
+/packaging/arch/*.log

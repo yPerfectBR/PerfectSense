@@ -7,23 +7,26 @@
 
 | Área | Estado |
 |------|--------|
-| Módulo kernel | **Fase 6:** API **5** (até RGB/logo) |
-| libperfectsense | **Fase 6** |
-| CLI | **Fase 6:** + `rgb` / `logo` / `lights` |
-| perfectsensed / D-Bus | Não implementado |
+| Módulo kernel | **Fase 6:** API **5** |
+| libperfectsense | **Fase 6+** |
+| CLI | Sysfs (funciona **sem** daemon) |
+| perfectsensed / D-Bus | **Fase 7:** `org.perfectsense.Sense1` |
 | FanAggressor | Não implementado |
 | Pacote Arch | Skeleton PKGBUILD |
 
-## O que já está no repo
+## D-Bus
 
-- `perfect_sense/`: perfil, fans, battery/misc, `lighting_reset`
-- `four_zoned_kb/per_zone_mode` + `four_zone_mode`
-- `back_logo/color`
+- Nome: `org.perfectsense.Sense1`
+- Path: `/org/perfectsense/Sense1`
+- Sinal: `ProfileChanged(s)` ao mudar perfil via D-Bus
+- Unit: `perfectsensed.service`
 
 ```text
-build/perfectsense rgb|logo|lights …
+busctl introspect org.perfectsense.Sense1 /org/perfectsense/Sense1 org.perfectsense.Sense1
 ```
+
+A CLI continua via sysfs sem o daemon.
 
 ## Ainda não
 
-D-Bus, FanAggressor, CPU power, tecla turbo/modo.
+FanAggressor, CPU power, tecla turbo → D-Bus.

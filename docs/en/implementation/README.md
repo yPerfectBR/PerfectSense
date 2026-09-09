@@ -7,46 +7,61 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 6:** profiles, fans, misc attrs, RGB KB + logo (API **5**) |
-| libperfectsense | **Phase 6:** sysfs client including RGB/logo |
-| CLI | **Phase 6:** + `rgb` / `logo` / `lights reset` + `--json` |
-| perfectsensed / D-Bus | Not implemented |
+| Kernel module | **Phase 6:** API **5** (profiles, fans, misc, RGB/logo) |
+| libperfectsense | **Phase 6+** sysfs client |
+| CLI | Sysfs one-shot (works **without** daemon) |
+| perfectsensed / D-Bus | **Phase 7:** `org.perfectsense.Sense1` |
 | FanAggressor | Not implemented |
 | Arch package | PKGBUILD skeleton (not installable) |
 
 ## Shipped today
 
-### Kernel (`kmod/`, API version **5**)
+### Kernel (`kmod/`, API **5**)
 
-Unload conflicting Acer gaming WMI modules before `insmod`.
+Sysfs groups under `/sys/devices/platform/perfectsense/`:
 
-**`…/perfect_sense/`** — thermal, fans, battery/misc, `lighting_reset` (WO).
-
-**`…/four_zoned_kb/`**
-
-| Attr | Format |
-|------|--------|
-| `per_zone_mode` | `RRGGBB,RRGGBB,RRGGBB,RRGGBB,brightness` |
-| `four_zone_mode` | `mode,speed,brightness,direction,r,g,b` |
-
-**`…/back_logo/`**
-
-| Attr | Format |
-|------|--------|
-| `color` | `RRGGBB,brightness[,enable]` (`enable=0` forces brightness 0) |
-
-On PHN16-72-74VX, per-zone RGB get/set and logo get/set validated; `lcd_override`
-/ `backlight_timeout` still read `-1`.
+- `perfect_sense/` — thermal, fans, battery/misc, `lighting_reset`
+- `four_zoned_kb/` — `per_zone_mode`, `four_zone_mode`
+- `back_logo/color`
 
 ### Userspace
 
 ```text
 meson setup build && meson compile -C build
-build/perfectsense rgb get|set <z1> <z2> <z3> <z4> [bri]|off
-build/perfectsense logo get|set <RRGGBB> [bri] [en]|off
-build/perfectsense lights reset
+build/perfectsense …          # sysfs CLI
+build/perfectsensed           # system D-Bus daemon (root)
 ```
+
+Install snippets (Meson `install`):
+
+- `lib/systemd/system/perfectsensed.service`
+- `share/dbus-1/system.d/org.perfectsense.Sense1.conf`
+- `share/dbus-1/interfaces/org.perfectsense.Sense1.xml`
+
+### D-Bus (`org.perfectsense.Sense1`)
+
+| Item | Value |
+|------|-------|
+| Bus name | `org.perfectsense.Sense1` |
+| Object path | `/org/perfectsense/Sense1` |
+| Interface | `org.perfectsense.Sense1` |
+
+**Properties (selected):** `ApiVersion`, `Available`, `ThermalProfile` (RW),
+`PlatformProfile`, `AcOnline`, fan duty/target/auto, `BatteryLimiter`,
+`UsbCharging`, `Rgb`, `Logo`.
+
+**Methods:** `SetFanTarget(uu)`, `SetFanAuto()`, `SetRgb(s)`, `SetLogo(s)`,
+`Refresh()`.
+
+**Signals:** `ProfileChanged(s)` — emitted when `ThermalProfile` is set via D-Bus.
+
+```text
+busctl introspect org.perfectsense.Sense1 /org/perfectsense/Sense1 org.perfectsense.Sense1
+busctl set-property … ThermalProfile s balanced
+```
+
+Requires `perfectsense.ko` loaded. Stopping the daemon does **not** break the CLI.
 
 ## Not yet
 
-D-Bus / `perfectsensed`, FanAggressor, CPU power, key events (Phases 7+).
+FanAggressor, CPU power presets, hardware key → D-Bus (Phases 8–10).

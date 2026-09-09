@@ -45,9 +45,9 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 6 in tree:** four-zone keyboard RGB and lid logo via sysfs + CLI
-(`rgb` / `logo` / `lights reset`). See
-[implementation status](docs/en/implementation/README.md).
+**Phase 7 in tree:** `perfectsensed` exports `org.perfectsense.Sense1` on the
+system bus (properties, profile signal, fan/RGB methods). The CLI still works
+without the daemon. See [implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).

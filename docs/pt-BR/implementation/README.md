@@ -25,6 +25,16 @@ perfectsense fan get   # inclui rpm
 `event inject` / teclas físicas → D-Bus `Hotkey`. Mode cicla (salta rejeitados);
 turbo só em AC (toggle).
 
-## FanAggressor
+## NVIDIA PowerMizer
 
-Persistente em `/etc/perfectsense/fan-aggressor.conf`.
+`mode set` / tecla de modos também pedem Preferred Mode:
+
+| Perfil | PowerMizer |
+|--------|------------|
+| low-power / quiet | Normal |
+| balanced | Auto |
+| bp / performance | Prefer Maximum |
+
+`perfectsense gpu powermizer get|set …`
+
+Em Wayland puro o NV-CONTROL pode não aplicar (fica em Normal).

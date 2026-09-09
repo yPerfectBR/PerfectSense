@@ -281,7 +281,13 @@ int ps_mode_set(const char *name)
 		return err;
 
 	path_join(path, sizeof(path), ps_sysfs_root(), "thermal_profile");
-	return write_text(path, normalized);
+	err = write_text(path, normalized);
+	if (err)
+		return err;
+
+	/* Helios: sync NVIDIA Preferred Mode to the thermal profile. */
+	(void)ps_gpu_powermizer_for_profile(normalized);
+	return 0;
 }
 
 int ps_fan_duty_get(unsigned *cpu, unsigned *gpu)
@@ -498,6 +504,8 @@ const char *ps_strerror(int err)
 	if (err >= 0)
 		return "success";
 	switch (-err) {
+	case EAGAIN:
+		return "NVIDIA PowerMizer did not stick (NV-CONTROL/Wayland?)";
 	case ENODEV:
 		return "perfectsense sysfs not found (is the module loaded?)";
 	case EACCES:

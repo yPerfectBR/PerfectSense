@@ -52,10 +52,19 @@ Packaging installs:
 - `modules-load.d`: load `perfectsense`
 - `perfectsensed.service` + `.path`
 
-## CLI extras
+## NVIDIA PowerMizer (Helios)
+
+Changing thermal profile also sets Preferred Mode via `nvidia-settings`:
+
+| Thermal | PowerMizer |
+|---------|------------|
+| `low-power` / `quiet` | Normal (0) |
+| `balanced` | Auto (2) |
+| `balanced-performance` / `performance` | Prefer Maximum (1) |
 
 ```text
-perfectsense temps
-perfectsense rgb effect get|set <mode,speed,bri,dir,r,g,b>
-perfectsense event inject turbo|mode|ac-online|ac-offline
+perfectsense gpu powermizer get|set normal|auto|max
 ```
+
+On some Wayland sessions NV-CONTROL cannot change the attribute (set appears
+to succeed but the value stays); thermal profile still applies.

@@ -51,6 +51,13 @@ int ps_status_read(struct ps_status *out);
 int ps_mode_get(char *buf, size_t buflen);
 int ps_mode_set(const char *name);
 
+/* NVIDIA PowerMizer Preferred Mode (0=normal, 1=max, 2=auto) */
+int ps_gpu_powermizer_get(int *mode);
+int ps_gpu_powermizer_set(int mode);
+int ps_gpu_powermizer_for_profile(const char *thermal_name);
+int ps_gpu_powermizer_from_name(const char *name, int *mode);
+const char *ps_gpu_powermizer_name(int mode);
+
 int ps_fan_duty_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_target_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_set(unsigned cpu, unsigned gpu);

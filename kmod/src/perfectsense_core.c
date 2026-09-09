@@ -125,6 +125,6 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.0.11");
+MODULE_VERSION("0.0.12");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");
 MODULE_ALIAS("wmi:676AA15E-6A47-4D9F-A2CC-1E6D18D14026");

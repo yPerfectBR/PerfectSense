@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.11',
+  version: '0.0.12',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -23,6 +23,7 @@ libperfectsense = library(
     'lib/cpu_power.c',
     'lib/temps.c',
     'lib/fan_aggressor.c',
+    'lib/gpu_nvidia.c',
   ],
   include_directories: inc,
   install: true,

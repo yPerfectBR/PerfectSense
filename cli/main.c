@@ -20,7 +20,8 @@ static void usage(FILE *out)
 		"Commands:\n"
 		"  status                      Full hardware status\n"
 		"  temps                       CPU/GPU temps (°C)\n"
-		"  mode get|set <name>         Thermal profile\n"
+		"  mode get|set <name>         Thermal profile (+ NVIDIA PowerMizer)\n"
+		"  gpu powermizer get|set <normal|auto|max>\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
 		"  fan aggressor on|off|status|set key=val…\n"
 		"  battery get|on|off          80% charge limiter\n"
@@ -625,6 +626,53 @@ static int cmd_logo(int argc, char **argv)
 	return 1;
 }
 
+static int cmd_gpu(int argc, char **argv)
+{
+	int mode, err;
+
+	if (argc < 1 || strcmp(argv[0], "powermizer") != 0) {
+		fputs("perfectsense: gpu powermizer get|set <normal|auto|max>\n",
+		      stderr);
+		return 1;
+	}
+	if (argc < 2) {
+		fputs("perfectsense: gpu powermizer get|set …\n", stderr);
+		return 1;
+	}
+	if (!strcmp(argv[1], "get")) {
+		err = ps_gpu_powermizer_get(&mode);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"powermizer\":\"%s\",\"value\":%d}\n",
+			       ps_gpu_powermizer_name(mode), mode);
+		else
+			printf("%s (%d)\n", ps_gpu_powermizer_name(mode), mode);
+		return 0;
+	}
+	if (!strcmp(argv[1], "set")) {
+		if (argc < 3) {
+			fputs("perfectsense: gpu powermizer set <normal|auto|max>\n",
+			      stderr);
+			return 1;
+		}
+		err = ps_gpu_powermizer_from_name(argv[2], &mode);
+		if (err)
+			return fail(err);
+		err = ps_gpu_powermizer_set(mode);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"powermizer\":\"%s\"}\n",
+			       ps_gpu_powermizer_name(mode));
+		else
+			printf("powermizer: %s\n", ps_gpu_powermizer_name(mode));
+		return 0;
+	}
+	fputs("perfectsense: gpu powermizer get|set …\n", stderr);
+	return 1;
+}
+
 static int cmd_temps(void)
 {
 	int cpu_c = 0, gpu_c = 0;
@@ -887,6 +935,8 @@ int main(int argc, char **argv)
 		return cmd_status();
 	if (!strcmp(cmd, "temps"))
 		return cmd_temps();
+	if (!strcmp(cmd, "gpu"))
+		return cmd_gpu(argc - i, argv + i);
 	if (!strcmp(cmd, "mode"))
 		return cmd_mode(argc - i, argv + i);
 	if (!strcmp(cmd, "fan"))

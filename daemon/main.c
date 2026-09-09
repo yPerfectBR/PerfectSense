@@ -2,13 +2,15 @@
 /*
  * perfectsensed — system D-Bus daemon for org.perfectsense.Sense1
  *
- * Talks to PerfectSense sysfs via libperfectsense. No FanAggressor timer.
- * CLI continues to work without this process.
+ * Talks to PerfectSense sysfs via libperfectsense.
+ * FanAggressor timerfd runs only while offset mode is enabled.
  */
 
 #include "perfectsense.h"
+#include "fan_aggressor_runtime.h"
 
 #include <errno.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -555,6 +557,69 @@ static int method_cpu_restore(sd_bus_message *m, void *userdata,
 	return sd_bus_reply_method_return(m, NULL);
 }
 
+static int prop_fa_enabled(sd_bus *bus, const char *path, const char *iface,
+			   const char *prop, sd_bus_message *reply,
+			   void *userdata, sd_bus_error *err)
+{
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	(void)err;
+	return sd_bus_message_append(reply, "b", fa_runtime_enabled());
+}
+
+static int prop_fa_enabled_set(sd_bus *bus, const char *path, const char *iface,
+			       const char *prop, sd_bus_message *value,
+			       void *userdata, sd_bus_error *err)
+{
+	int on = 0;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = sd_bus_message_read(value, "b", &on);
+	if (r < 0)
+		return r;
+	r = fa_runtime_set_enabled(on);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	sd_bus_emit_signal(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+			   "FanAggressorChanged", "b", on);
+	return 1;
+}
+
+static int prop_fa_active(sd_bus *bus, const char *path, const char *iface,
+			  const char *prop, sd_bus_message *reply,
+			  void *userdata, sd_bus_error *err)
+{
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	(void)err;
+	return sd_bus_message_append(reply, "b", fa_runtime_active());
+}
+
+static int method_fa_status(sd_bus_message *m, void *userdata,
+			    sd_bus_error *err)
+{
+	struct fa_runtime_status st;
+
+	(void)userdata;
+	(void)err;
+	fa_runtime_get_status(&st);
+	return sd_bus_reply_method_return(
+		m, "bbbiiuuuu", st.enabled, st.active, st.paused_manual,
+		st.temp_cpu, st.temp_gpu, st.native_cpu, st.native_gpu,
+		st.applied_cpu, st.applied_gpu);
+}
+
 static const sd_bus_vtable sense1_vtable[] = {
 	SD_BUS_VTABLE_START(0),
 
@@ -597,7 +662,15 @@ static const sd_bus_vtable sense1_vtable[] = {
 	SD_BUS_METHOD("CpuRestore", NULL, NULL, method_cpu_restore,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
 
+	SD_BUS_WRITABLE_PROPERTY("FanAggressorEnabled", "b", prop_fa_enabled,
+				 prop_fa_enabled_set, 0,
+				 SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_PROPERTY("FanAggressorActive", "b", prop_fa_active, 0, 0),
+	SD_BUS_METHOD("FanAggressorStatus", NULL, "bbbiiuuuu", method_fa_status,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
+
 	SD_BUS_SIGNAL("ProfileChanged", "s", 0),
+	SD_BUS_SIGNAL("FanAggressorChanged", "b", 0),
 
 	SD_BUS_VTABLE_END,
 };
@@ -637,10 +710,20 @@ int main(int argc, char **argv)
 	if (ps_mode_get(g_last_profile, sizeof(g_last_profile)) < 0)
 		g_last_profile[0] = '\0';
 
+	r = fa_runtime_init();
+	if (r < 0)
+		fprintf(stderr, "perfectsensed: fan aggressor init: %s\n",
+			strerror(-r));
+
 	sd_notify(0, "READY=1");
-	fprintf(stderr, "perfectsensed: listening on %s\n", PS_DBUS_NAME);
+	fprintf(stderr, "perfectsensed: listening on %s (fan_aggressor=%s)\n",
+		PS_DBUS_NAME, fa_runtime_enabled() ? "on" : "off");
 
 	while (!g_stop) {
+		struct pollfd fds[2];
+		int nfds = 1;
+		int tfd;
+
 		r = sd_bus_process(g_bus, NULL);
 		if (r < 0) {
 			fprintf(stderr, "perfectsensed: process: %s\n",
@@ -649,15 +732,32 @@ int main(int argc, char **argv)
 		}
 		if (r > 0)
 			continue;
-		r = sd_bus_wait(g_bus, (uint64_t)-1);
-		if (r < 0 && r != -EINTR) {
-			fprintf(stderr, "perfectsensed: wait: %s\n",
-				strerror(-r));
+
+		fds[0].fd = sd_bus_get_fd(g_bus);
+		fds[0].events = POLLIN;
+		fds[0].revents = 0;
+		tfd = fa_runtime_timer_fd();
+		if (tfd >= 0) {
+			fds[1].fd = tfd;
+			fds[1].events = POLLIN;
+			fds[1].revents = 0;
+			nfds = 2;
+		}
+
+		r = poll(fds, (nfds_t)nfds, -1);
+		if (r < 0) {
+			if (errno == EINTR)
+				continue;
+			fprintf(stderr, "perfectsensed: poll: %s\n",
+				strerror(errno));
 			break;
 		}
+		if (nfds == 2 && (fds[1].revents & POLLIN))
+			fa_runtime_on_timer();
 	}
 
 	sd_notify(0, "STOPPING=1");
+	fa_runtime_shutdown();
 	r = 0;
 
 out:

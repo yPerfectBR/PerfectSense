@@ -21,6 +21,7 @@ static void usage(FILE *out)
 		"  status                      Full hardware status\n"
 		"  mode get|set <name>         Thermal profile\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
+		"  fan aggressor on|off|status\n"
 		"  battery get|on|off          80% charge limiter\n"
 		"  battery calibration get|on|off\n"
 		"  usb get|set <0|10|20|30>    USB charging while off (minutes)\n"
@@ -185,6 +186,73 @@ static int cmd_fan(int argc, char **argv)
 		return 1;
 	}
 	sub = argv[0];
+
+	if (!strcmp(sub, "aggressor")) {
+		struct ps_fan_aggressor_config cfg;
+		int cpu_c = 0, gpu_c = 0;
+
+		if (argc < 2) {
+			fputs("perfectsense: fan aggressor on|off|status\n",
+			      stderr);
+			return 1;
+		}
+		ps_fan_aggressor_config_load(&cfg);
+		if (!strcmp(argv[1], "status")) {
+			(void)ps_temps_read(&cpu_c, &gpu_c);
+			if (g_json) {
+				printf(
+					"{\"enabled\":%s,\"engage_c\":%d,"
+					"\"hysteresis_c\":%d,\"hold_sec\":%d,"
+					"\"offset_cpu\":%d,\"offset_gpu\":%d,"
+					"\"floor_cpu\":%d,\"floor_gpu\":%d,"
+					"\"temp_cpu\":%d,\"temp_gpu\":%d}\n",
+					cfg.enabled ? "true" : "false",
+					cfg.engage_c, cfg.hysteresis_c,
+					cfg.hold_sec, cfg.offset_cpu,
+					cfg.offset_gpu, cfg.floor_cpu,
+					cfg.floor_gpu, cpu_c, gpu_c);
+			} else {
+				printf("fan aggressor: %s\n",
+				       cfg.enabled ? "on" : "off");
+				printf("engage_c: %d (hyst %d, hold %ds)\n",
+				       cfg.engage_c, cfg.hysteresis_c,
+				       cfg.hold_sec);
+				printf("offset: %d,%d  floor: %d,%d\n",
+				       cfg.offset_cpu, cfg.offset_gpu,
+				       cfg.floor_cpu, cfg.floor_gpu);
+				printf("temp: cpu=%d gpu=%d\n", cpu_c, gpu_c);
+				puts("note: timer runs in perfectsensed when enabled");
+			}
+			return 0;
+		}
+		if (!strcmp(argv[1], "on") || !strcmp(argv[1], "off")) {
+			cfg.enabled = !strcmp(argv[1], "on");
+			err = ps_fan_aggressor_config_save(&cfg);
+			if (err)
+				return fail(err);
+			if (cfg.enabled) {
+				(void)system(
+					"busctl set-property org.perfectsense.Sense1 "
+					"/org/perfectsense/Sense1 org.perfectsense.Sense1 "
+					"FanAggressorEnabled b true >/dev/null 2>&1");
+			} else {
+				(void)system(
+					"busctl set-property org.perfectsense.Sense1 "
+					"/org/perfectsense/Sense1 org.perfectsense.Sense1 "
+					"FanAggressorEnabled b false >/dev/null 2>&1");
+				(void)ps_fan_set_auto();
+			}
+			if (g_json)
+				printf("{\"ok\":true,\"fan_aggressor\":%s}\n",
+				       cfg.enabled ? "true" : "false");
+			else
+				printf("fan aggressor: %s\n",
+				       cfg.enabled ? "on" : "off");
+			return 0;
+		}
+		fputs("perfectsense: fan aggressor on|off|status\n", stderr);
+		return 1;
+	}
 
 	if (!strcmp(sub, "get")) {
 		err = ps_fan_duty_get(&cpu, &gpu);

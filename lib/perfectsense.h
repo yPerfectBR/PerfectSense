@@ -92,6 +92,27 @@ int ps_cpu_power_restore(void);
 /* presets: power|eco, balanced, performance|bp, turbo; sync_platform_profile≠0 links thermal */
 int ps_cpu_power_preset(const char *name, int sync_platform_profile);
 
+/* Phase 9 — FanAggressor (config shared; timer in daemon) */
+struct ps_fan_aggressor_config {
+	int enabled;
+	int engage_c;
+	int hysteresis_c;
+	int hold_sec;
+	int interval_ms;
+	int offset_cpu;
+	int offset_gpu;
+	int floor_cpu;
+	int floor_gpu;
+};
+
+int ps_temps_read(int *cpu_c, int *gpu_c);
+void ps_fan_aggressor_defaults(struct ps_fan_aggressor_config *cfg);
+int ps_fan_aggressor_config_load(struct ps_fan_aggressor_config *cfg);
+int ps_fan_aggressor_config_save(const struct ps_fan_aggressor_config *cfg);
+void ps_fan_aggressor_compute_duty(const struct ps_fan_aggressor_config *cfg,
+				   unsigned native_cpu, unsigned native_gpu,
+				   unsigned *out_cpu, unsigned *out_gpu);
+
 const char *ps_strerror(int err);
 
 #ifdef __cplusplus

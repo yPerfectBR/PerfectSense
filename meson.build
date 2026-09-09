@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.8',
+  version: '0.0.9',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -18,7 +18,12 @@ libsystemd = dependency('libsystemd')
 
 libperfectsense = library(
   'perfectsense',
-  ['lib/perfectsense.c', 'lib/cpu_power.c'],
+  [
+    'lib/perfectsense.c',
+    'lib/cpu_power.c',
+    'lib/temps.c',
+    'lib/fan_aggressor.c',
+  ],
   include_directories: inc,
   install: true,
   version: meson.project_version(),
@@ -37,8 +42,8 @@ cli_exe = executable(
 
 daemon_exe = executable(
   'perfectsensed',
-  'daemon/main.c',
-  include_directories: inc,
+  ['daemon/main.c', 'daemon/fan_aggressor_runtime.c'],
+  include_directories: [inc, include_directories('daemon')],
   link_with: libperfectsense,
   dependencies: [libsystemd],
   install: true,
@@ -71,5 +76,5 @@ summary({
   'cli': cli_exe.name(),
   'daemon': daemon_exe.name(),
   'lib': libperfectsense.name(),
-  'note': 'Phase 8 — CPU power presets',
+  'note': 'Phase 9 — FanAggressor offset mode',
 }, section: 'PerfectSense')

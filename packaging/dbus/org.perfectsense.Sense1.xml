@@ -22,6 +22,8 @@
     <property name="CpuMaxPerfPct" type="u" access="read"/>
     <property name="CpuPl1Uw" type="t" access="read"/>
     <property name="CpuPl2Uw" type="t" access="read"/>
+    <property name="FanAggressorEnabled" type="b" access="readwrite"/>
+    <property name="FanAggressorActive" type="b" access="read"/>
     <method name="SetFanTarget">
       <arg direction="in" type="u" name="cpu"/>
       <arg direction="in" type="u" name="gpu"/>
@@ -39,8 +41,22 @@
       <arg direction="in" type="b" name="sync_platform_profile"/>
     </method>
     <method name="CpuRestore"/>
+    <method name="FanAggressorStatus">
+      <arg direction="out" type="b" name="enabled"/>
+      <arg direction="out" type="b" name="active"/>
+      <arg direction="out" type="b" name="paused_manual"/>
+      <arg direction="out" type="i" name="temp_cpu"/>
+      <arg direction="out" type="i" name="temp_gpu"/>
+      <arg direction="out" type="u" name="native_cpu"/>
+      <arg direction="out" type="u" name="native_gpu"/>
+      <arg direction="out" type="u" name="applied_cpu"/>
+      <arg direction="out" type="u" name="applied_gpu"/>
+    </method>
     <signal name="ProfileChanged">
       <arg type="s" name="profile"/>
+    </signal>
+    <signal name="FanAggressorChanged">
+      <arg type="b" name="enabled"/>
     </signal>
   </interface>
 </node>

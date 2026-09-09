@@ -12,6 +12,10 @@ modules.order
 *.a
 *.so
 *.so.*
+*.ko.unsigned
+*.o.ur-safe
+.compile_commands.json
+.compile_commands.json.tmp
 
 # Editor / OS
 .idea/

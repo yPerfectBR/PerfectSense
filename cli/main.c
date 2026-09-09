@@ -80,6 +80,7 @@ static int emit_status_json(const struct ps_status *s)
 {
 	char b1[16], b2[16], b3[16], b4[16], b5[16], b6[16];
 	char r1[16], r2[16], t1[16], t2[16];
+	char pd[16], pw[16], psync[16];
 
 	printf(
 		"{\"api_version\":%u,"
@@ -101,7 +102,10 @@ static int emit_status_json(const struct ps_status *s)
 		"\"boot_animation_sound\":%s,"
 		"\"rgb\":\"%s\","
 		"\"rgb_effect\":\"%s\","
-		"\"logo\":\"%s\""
+		"\"logo\":\"%s\","
+		"\"nvidia_powerd\":%s,"
+		"\"nvidia_powerd_wanted\":%s,"
+		"\"nvidia_powerd_synced\":%s"
 		"}\n",
 		s->api_version, s->thermal_profile, s->thermal_profile_raw,
 		s->ac_online ? "true" : "false", s->platform_profile,
@@ -117,7 +121,10 @@ static int emit_status_json(const struct ps_status *s)
 		json_int_or_null(s->lcd_override, b4, sizeof(b4)),
 		json_int_or_null(s->backlight_timeout, b5, sizeof(b5)),
 		json_int_or_null(s->boot_animation_sound, b6, sizeof(b6)),
-		s->rgb, s->rgb_effect, s->logo);
+		s->rgb, s->rgb_effect, s->logo,
+		json_int_or_null(s->nvidia_powerd, pd, sizeof(pd)),
+		json_int_or_null(s->nvidia_powerd_wanted, pw, sizeof(pw)),
+		json_int_or_null(s->nvidia_powerd_synced, psync, sizeof(psync)));
 	return 0;
 }
 
@@ -145,6 +152,20 @@ static int emit_status_text(const struct ps_status *s)
 	printf("rgb_effect: %s\n",
 	       s->rgb_effect[0] ? s->rgb_effect : "(unavailable)");
 	printf("logo: %s\n", s->logo[0] ? s->logo : "(unavailable)");
+	if (s->nvidia_powerd >= 0) {
+		printf("nvidia_powerd: %s (wanted %s, synced %s)\n",
+		       s->nvidia_powerd ? "on" : "off",
+		       s->nvidia_powerd_wanted < 0
+			       ? "?"
+			       : (s->nvidia_powerd_wanted ? "on" : "off"),
+		       s->nvidia_powerd_synced < 0
+			       ? "?"
+			       : (s->nvidia_powerd_synced ? "yes" : "NO"));
+		if (s->nvidia_powerd_synced == 0)
+			fputs("warning: nvidia-powerd out of sync with thermal "
+			      "profile (Dynamic Boost may be wrong)\n",
+			      stderr);
+	}
 	return 0;
 }
 
@@ -188,10 +209,26 @@ static int cmd_mode(int argc, char **argv)
 			return 1;
 		}
 		err = ps_mode_set(argv[1]);
+		if (err == -EBUSY) {
+			/* Thermal applied; powerd sync failed — warn UIs/humans. */
+			if (g_json)
+				printf("{\"ok\":true,\"thermal_profile\":\"%s\","
+				       "\"nvidia_powerd_synced\":false,"
+				       "\"warning\":\"nvidia-powerd sync failed\"}\n",
+				       argv[1]);
+			else {
+				printf("thermal_profile set to %s\n", argv[1]);
+				fprintf(stderr,
+					"perfectsense: warning: %s\n",
+					ps_strerror(err));
+			}
+			return 2;
+		}
 		if (err)
 			return fail(err);
 		if (g_json)
-			printf("{\"ok\":true,\"thermal_profile\":\"%s\"}\n",
+			printf("{\"ok\":true,\"thermal_profile\":\"%s\","
+			       "\"nvidia_powerd_synced\":true}\n",
 			       argv[1]);
 		else
 			printf("thermal_profile set to %s\n", argv[1]);

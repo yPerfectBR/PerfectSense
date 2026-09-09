@@ -102,29 +102,78 @@ int ps_gpu_powerd_set(int enabled)
 	if (err)
 		return err;
 	if ((cur != 0) != (enabled != 0))
-		return -EAGAIN;
+		return -EBUSY;
+	return 0;
+}
+
+int ps_gpu_powerd_wanted(const char *thermal_name, int *wanted)
+{
+	const char *n;
+
+	if (!wanted || !thermal_name || !*thermal_name)
+		return -EINVAL;
+
+	n = thermal_name;
+	if (!strcmp(n, "eco"))
+		n = "low-power";
+	else if (!strcmp(n, "turbo"))
+		n = "performance";
+	else if (!strcmp(n, "bp") || !strcmp(n, "performance-balanced"))
+		n = "balanced-performance";
+
+	if (!strcmp(n, "low-power") || !strcmp(n, "quiet"))
+		*wanted = 0;
+	else if (!strcmp(n, "balanced") ||
+		 !strcmp(n, "balanced-performance") ||
+		 !strcmp(n, "performance"))
+		*wanted = 1;
+	else
+		return -EINVAL;
 	return 0;
 }
 
 int ps_gpu_powerd_for_profile(const char *thermal_name)
 {
 	int enable;
+	int err;
 
-	if (!thermal_name || !*thermal_name)
-		return -EINVAL;
-
-	if (!strcmp(thermal_name, "low-power") ||
-	    !strcmp(thermal_name, "quiet") || !strcmp(thermal_name, "eco"))
-		enable = 0;
-	else if (!strcmp(thermal_name, "balanced") ||
-		 !strcmp(thermal_name, "balanced-performance") ||
-		 !strcmp(thermal_name, "performance") ||
-		 !strcmp(thermal_name, "bp") || !strcmp(thermal_name, "turbo"))
-		enable = 1;
-	else
-		return -EINVAL;
-
+	err = ps_gpu_powerd_wanted(thermal_name, &enable);
+	if (err)
+		return err;
 	return ps_gpu_powerd_set(enable);
+}
+
+int ps_gpu_powerd_synced(const char *thermal_name, int *synced, int *enabled,
+			 int *wanted)
+{
+	char profile[64];
+	int on = 0, want = 0;
+	int err;
+
+	if (!synced)
+		return -EINVAL;
+
+	if (thermal_name && *thermal_name) {
+		snprintf(profile, sizeof(profile), "%s", thermal_name);
+	} else {
+		err = ps_mode_get(profile, sizeof(profile));
+		if (err)
+			return err;
+	}
+
+	err = ps_gpu_powerd_wanted(profile, &want);
+	if (err)
+		return err;
+	err = ps_gpu_powerd_get(&on);
+	if (err)
+		return err;
+
+	*synced = ((on != 0) == (want != 0)) ? 1 : 0;
+	if (enabled)
+		*enabled = on ? 1 : 0;
+	if (wanted)
+		*wanted = want ? 1 : 0;
+	return 0;
 }
 
 /* ---------- PowerMizer Preferred Mode (optional / X11-ish) ---------- */

@@ -256,6 +256,20 @@ int ps_status_read(struct ps_status *out)
 		}
 	}
 
+	out->nvidia_powerd = -1;
+	out->nvidia_powerd_wanted = -1;
+	out->nvidia_powerd_synced = -1;
+	{
+		int synced = 0, on = 0, want = 0;
+
+		if (ps_gpu_powerd_synced(out->thermal_profile, &synced, &on,
+					 &want) == 0) {
+			out->nvidia_powerd = on;
+			out->nvidia_powerd_wanted = want;
+			out->nvidia_powerd_synced = synced;
+		}
+	}
+
 	return 0;
 }
 
@@ -285,8 +299,14 @@ int ps_mode_set(const char *name)
 	if (err)
 		return err;
 
-	/* Helios: sync nvidia-powerd (Dynamic Boost ~80W↔~140W). */
-	(void)ps_gpu_powerd_for_profile(normalized);
+	/*
+	 * Helios: sync nvidia-powerd (Dynamic Boost ~80W↔~140W).
+	 * Thermal write already succeeded. -EBUSY means powerd did not reach
+	 * the expected state (UI should warn; profile is still applied).
+	 */
+	err = ps_gpu_powerd_for_profile(normalized);
+	if (err)
+		return err;
 	return 0;
 }
 
@@ -506,6 +526,10 @@ const char *ps_strerror(int err)
 	switch (-err) {
 	case EAGAIN:
 		return "NVIDIA PowerMizer did not stick (NV-CONTROL/Wayland?)";
+	case EBUSY:
+		return "nvidia-powerd not in expected state (start-limit/failed? "
+		       "systemctl reset-failed nvidia-powerd.service && "
+		       "systemctl start nvidia-powerd.service)";
 	case ENODEV:
 		return "perfectsense sysfs not found (is the module loaded?)";
 	case EACCES:

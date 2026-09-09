@@ -89,11 +89,13 @@ static void handle_mode_key(void)
 		size_t idx = (start + i) % n;
 
 		r = ps_mode_set(g_mode_cycle[idx]);
-		if (r == 0) {
+		if (r == 0 || r == -EBUSY) {
 			snprintf(g_last_profile, sizeof(g_last_profile), "%s",
 				 g_mode_cycle[idx]);
-			fprintf(stderr, "perfectsensed: mode key → %s\n",
-				g_last_profile);
+			fprintf(stderr, "perfectsensed: mode key → %s%s\n",
+				g_last_profile,
+				r == -EBUSY ? " (nvidia-powerd sync failed)"
+					    : "");
 			return;
 		}
 		if (r != -EOPNOTSUPP)
@@ -134,10 +136,14 @@ static void handle_turbo_key(void)
 		if (r < 0)
 			fprintf(stderr, "perfectsensed: turbo restore: %s\n",
 				strerror(-r));
-		if (ps_mode_set("balanced") == 0) {
+		r = ps_mode_set("balanced");
+		if (r == 0 || r == -EBUSY) {
 			snprintf(g_last_profile, sizeof(g_last_profile),
 				 "balanced");
-			fprintf(stderr, "perfectsensed: turbo key → balanced\n");
+			fprintf(stderr,
+				"perfectsensed: turbo key → balanced%s\n",
+				r == -EBUSY ? " (nvidia-powerd sync failed)"
+					    : "");
 		}
 		return;
 	}
@@ -181,11 +187,14 @@ static void handle_ac_offline(void)
 	}
 
 	r = ps_mode_set("balanced");
-	if (r < 0) {
+	if (r < 0 && r != -EBUSY) {
 		fprintf(stderr, "perfectsensed: AC demote mode: %s\n",
 			strerror(-r));
 		return;
 	}
+	if (r == -EBUSY)
+		fprintf(stderr,
+			"perfectsensed: AC demote: nvidia-powerd sync failed\n");
 
 	snprintf(g_last_profile, sizeof(g_last_profile), "balanced");
 }
@@ -203,9 +212,12 @@ static void handle_ac_online(void)
 	fprintf(stderr, "perfectsensed: AC online — restore %s\n",
 		g_saved_ac_profile);
 	r = ps_mode_set(g_saved_ac_profile);
-	if (r == 0) {
+	if (r == 0 || r == -EBUSY) {
 		snprintf(g_last_profile, sizeof(g_last_profile), "%s",
 			 g_saved_ac_profile);
+		if (r == -EBUSY)
+			fprintf(stderr,
+				"perfectsensed: AC restore: nvidia-powerd sync failed\n");
 		g_saved_ac_profile[0] = '\0';
 		return;
 	}

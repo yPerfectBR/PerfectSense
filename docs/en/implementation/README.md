@@ -60,6 +60,18 @@ daemon picks up engage/offset/interval without restart.
 
 `perfectsensed` only applies policy (hotkeys, AC, FA); it is not an RPC bus.
 
+## GPU / nvidia-powerd sync
+
+Thermal profiles expect Dynamic Boost on/off. UIs should check:
+
+| Field / API | Meaning |
+|-------------|---------|
+| `ps_status.nvidia_powerd_synced` | `0` = warn user (often start-limit) |
+| `ps_mode_set()` → `-EBUSY` | Profile applied, powerd sync failed |
+| `ps_gpu_powerd_synced()` | Poll without changing anything |
+
+`ps_strerror(-EBUSY)` describes the recovery command.
+
 ## Cutover notes
 
 See **[cutover.md](../cutover.md)** for the full nekro → PerfectSense switch.

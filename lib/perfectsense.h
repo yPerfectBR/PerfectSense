@@ -39,6 +39,16 @@ struct ps_status {
 	int temp_gpu;
 	int fan_rpm_cpu; /* RPM, or -1 */
 	int fan_rpm_gpu;
+	/*
+	 * nvidia-powerd Dynamic Boost vs thermal policy:
+	 *   nvidia_powerd:         live unit (0/1), or -1 if unknown
+	 *   nvidia_powerd_wanted:  expected for thermal_profile (0/1), or -1
+	 *   nvidia_powerd_synced:  1 match, 0 mismatch, -1 unknown
+	 * UIs should warn when synced == 0 (often systemd start-limit).
+	 */
+	int nvidia_powerd;
+	int nvidia_powerd_wanted;
+	int nvidia_powerd_synced;
 };
 
 int ps_available(void);
@@ -55,6 +65,15 @@ int ps_mode_set(const char *name);
 int ps_gpu_powerd_get(int *enabled);
 int ps_gpu_powerd_set(int enabled);
 int ps_gpu_powerd_for_profile(const char *thermal_name);
+/* Wanted state for a thermal name: *wanted = 0|1. */
+int ps_gpu_powerd_wanted(const char *thermal_name, int *wanted);
+/*
+ * Compare live powerd to wanted for thermal_name (NULL = current sysfs mode).
+ * *synced 1=ok, 0=mismatch. enabled/wanted may be NULL.
+ * Returns 0 on read OK, negative errno on hard failure.
+ */
+int ps_gpu_powerd_synced(const char *thermal_name, int *synced, int *enabled,
+			 int *wanted);
 
 int ps_gpu_powermizer_get(int *mode);
 int ps_gpu_powermizer_set(int mode);

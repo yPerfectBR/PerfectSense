@@ -16,7 +16,7 @@
 
 pkgname=perfectsense
 pkgver=0.0.18
-pkgrel=1
+pkgrel=2
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
 url='https://github.com/yPerfectBR/PerfectSense'
@@ -55,9 +55,16 @@ prepare() {
   tar -C "$_srcdir" \
     --exclude='.git' \
     --exclude='build' \
+    --exclude='packaging/arch/pkg' \
+    --exclude='packaging/arch/src' \
+    --exclude='packaging/arch/*.pkg.tar.*' \
     --exclude='kmod/*.ko' \
     --exclude='kmod/*.o' \
+    --exclude='kmod/*.mod' \
+    --exclude='kmod/*.mod.c' \
     --exclude='kmod/.*.cmd' \
+    --exclude='kmod/src/*.o' \
+    --exclude='kmod/src/.*.cmd' \
     --exclude='kmod/Module.symvers' \
     --exclude='kmod/modules.order' \
     --exclude='kmod/.tmp_versions' \
@@ -75,6 +82,10 @@ package() {
   local dkmsdir="$pkgdir/usr/src/perfectsense-$pkgver"
   install -d "$dkmsdir"
   cp -a "$srcdir/$pkgname-$pkgver/kmod/." "$dkmsdir/"
+  # Drop kbuild debris if any slipped past tar excludes.
+  find "$dkmsdir" \( -name '*.cmd' -o -name '*.o' -o -name '*.ko' -o -name '*.mod' \
+    -o -name '*.mod.c' -o -name 'Module.symvers' -o -name 'modules.order' \) -delete
+  rm -rf "$dkmsdir"/.tmp_versions
   sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"$pkgver\"/" "$dkmsdir/dkms.conf"
 
   install -Dm644 "$srcdir/$pkgname-$pkgver/packaging/modprobe.d/perfectsense.conf" \

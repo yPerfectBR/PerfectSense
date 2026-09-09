@@ -77,10 +77,24 @@ int ps_gpu_powerd_set(int enabled)
 {
 	char *argv_start[] = { "systemctl", "start", PS_POWERD_UNIT, NULL };
 	char *argv_stop[] = { "systemctl", "stop", PS_POWERD_UNIT, NULL };
+	char *argv_reset[] = { "systemctl", "reset-failed", PS_POWERD_UNIT,
+			       NULL };
 	int err;
 	int cur = -1;
 
+	err = ps_gpu_powerd_get(&cur);
+	if (err)
+		return err;
+	/* Already in the desired state — avoid systemd start-limit thrash. */
+	if ((cur != 0) == (enabled != 0))
+		return 0;
+
 	err = run_cmd(enabled ? argv_start : argv_stop);
+	if (err && enabled) {
+		/* Unit may be in failed/start-limit; clear once and retry. */
+		(void)run_cmd(argv_reset);
+		err = run_cmd(argv_start);
+	}
 	if (err)
 		return err;
 

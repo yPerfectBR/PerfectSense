@@ -7,7 +7,7 @@
 
 | Área | Estado |
 |------|--------|
-| Módulo kernel | **Fase 2:** get/set perfil, `platform_profile`, gate AC |
+| Módulo kernel | **Fase 3:** perfis + fans (duty vivo / target set/auto) |
 | libperfectsense | Placeholder |
 | CLI | Stub Fase 0 |
 | perfectsensed / D-Bus | Não implementado |
@@ -16,21 +16,18 @@
 
 ## O que já está no repo
 
-### Kernel (`kmod/`, API **2**)
+### Kernel (`kmod/`, API **3**)
 
 | Sysfs | Acesso | Significado |
 |-------|--------|-------------|
-| `…/perfect_sense/api_version` | RO | `2` |
+| `…/api_version` | RO | `3` |
 | `…/thermal_profile` | RW | Nome do perfil |
-| `…/thermal_profile_raw` | RO | Código firmware |
-| `…/ac_online` | RO | AC segundo firmware |
-| `/sys/firmware/acpi/platform_profile` | RW | Classe `perfectsense` |
+| `…/fan_duty` | RO | Duty vivo CPU,GPU `%` |
+| `…/fan_speed` | RW | Target `cpu,gpu` (`0,0` = auto) |
+| `platform_profile` | RW | Classe ACPI |
 
-**Política AC:** em bateria, `quiet` / `balanced-performance` / `performance` →
-`-EOPNOTSUPP`. `low-power` e `balanced` ok.
-
-Fans ainda não (Fase 3).
+Unload restaura fans a auto. `quiet` / `low-power` também forçam auto.
 
 ## Ainda não
 
-Fans, RGB, D-Bus, FanAggressor, CPU power (fases 3+).
+RGB, attrs de bateria, D-Bus, FanAggressor, CPU power.

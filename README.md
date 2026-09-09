@@ -45,9 +45,8 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 2 in tree:** kernel module can get/set the firmware thermal profile
-(sysfs + `platform_profile`), with AC-gated aggressive modes. See
-[implementation status](docs/en/implementation/README.md).
+**Phase 3 in tree:** thermal profiles plus CPU/GPU fan duty get and
+set/auto via sysfs. See [implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).

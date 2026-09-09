@@ -7,7 +7,7 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 2:** profile get/set, `platform_profile`, AC gate |
+| Kernel module | **Phase 3:** profiles + fans (duty live / target set/auto) |
 | libperfectsense | Placeholder directory |
 | CLI | Phase 0 stub binary |
 | perfectsensed / D-Bus | Not implemented |
@@ -16,39 +16,29 @@
 
 ## Shipped today
 
-### Kernel (`kmod/`, API version **2**)
+### Kernel (`kmod/`, API version **3**)
 
 Unload conflicting Acer gaming WMI modules before `insmod`.
 
 | Sysfs | Access | Meaning |
 |-------|--------|---------|
-| `/sys/devices/platform/perfectsense/perfect_sense/api_version` | RO | ABI version (`2`) |
-| `…/thermal_profile` | RW | Profile name (see table) |
+| `…/api_version` | RO | `3` |
+| `…/thermal_profile` | RW | Profile name |
 | `…/thermal_profile_raw` | RO | Firmware code |
-| `…/ac_online` | RO | `1` if AC per firmware, else `0` |
-| `/sys/firmware/acpi/platform_profile` | RW | Class device registered as `perfectsense` |
-| `/sys/firmware/acpi/platform_profile_choices` | RO | Supported profiles |
+| `…/ac_online` | RO | AC per firmware |
+| `…/fan_duty` | RO | Live CPU,GPU duty `%` from firmware (method 17) |
+| `…/fan_speed` | RW | Target `cpu,gpu` (`0,0` = auto; `100,100` = max behaviour) |
+| `/sys/firmware/acpi/platform_profile` | RW | Class `perfectsense` |
 
-| Firmware | Name |
-|----------|------|
-| `0x06` | `low-power` |
-| `0x00` | `quiet` |
-| `0x01` | `balanced` |
-| `0x04` | `balanced-performance` |
-| `0x05` | `performance` |
+**Fan notes**
 
-**AC policy:** on battery, setting `quiet`, `balanced-performance`, or `performance`
-returns `-EOPNOTSUPP`. `low-power` and `balanced` remain available.
+- `fan_duty` is live EC/firmware reading; it can lag after switching to auto.
+- `fan_speed` stores the last userspace target (`0,0` after auto).
+- Module unload restores fan auto.
+- Entering `quiet` / `low-power` also forces fan auto.
 
-Quiet/Eco no longer force fan auto here (fans arrive in Phase 3).
-
-### Other
-
-- AGPL-3.0 userspace/docs; `kmod/` GPL-2.0-or-later
-- Docs (`docs/en`, `docs/pt-BR`)
-- Meson CLI stub
-- Packaging placeholders
+**AC policy:** on battery, `quiet` / `balanced-performance` / `performance` → `-EOPNOTSUPP`.
 
 ## Not yet
 
-Fans, RGB, D-Bus, FanAggressor, CPU power (Phases 3+).
+RGB, battery attrs, D-Bus, FanAggressor, CPU power (Phases 5+ / 7+).

@@ -48,9 +48,22 @@ junto a cada ficheiro (ferramenta, SO, BIOS, ação que gerou o tráfego).
 
 Em bateria, firmware/OEM bloqueia `quiet`, `balanced-performance` e `performance`.
 
+### Fans (Fase 3)
+
+| Item | Valor |
+|------|-------|
+| Behaviour | method `14` |
+| Set speed | method `16` |
+| Get duty vivo | method `17` |
+| IDs | CPU `0x01`, GPU `0x04` |
+| Auto | `0x410009` |
+| Max | `0x820009` |
+
+`fan_duty` = leitura viva; `fan_speed` = último target (`0,0` = auto).
+
 ### Ainda a documentar
 
-Fans, RGB/logo, charge limit, tecla turbo/modo.
+RGB/logo, charge limit, tecla turbo/modo.
 
 ## Docs relacionadas
 

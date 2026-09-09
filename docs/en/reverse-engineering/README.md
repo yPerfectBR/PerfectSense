@@ -69,9 +69,24 @@ Thermal profile firmware codes → PerfectSense / `platform_profile` names:
 
 On battery, OEM policy blocks `quiet`, `balanced-performance`, and `performance`.
 
+### Fans (Phase 3)
+
+| Item | Value |
+|------|-------|
+| Set fan behaviour method | `14` |
+| Set fan speed method | `16` |
+| Get fan speed (live duty) method | `17` |
+| CPU fan id | `0x01` |
+| GPU fan id | `0x04` |
+| Auto behaviour payload | `0x410009` |
+| Max behaviour payload | `0x820009` |
+| Mixed custom behaviour | `0xC30009` then per-fan method 16 |
+| Speed encode | `((pct * 25600) / 100) & 0xFF00) + fan_id` |
+
+Sysfs: `fan_duty` = live get; `fan_speed` = last target (`0,0` auto).
+
 ### Still to document as phases land
 
-- Fan auto vs manual duty; live duty read vs last-written target
 - Four-zone keyboard and lid logo payload sizes / selectors
 - Battery charge limit semantics
 - Hardware turbo / mode key event codes

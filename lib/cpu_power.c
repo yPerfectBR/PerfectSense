@@ -412,6 +412,7 @@ int ps_cpu_power_preset(const char *name, int sync_platform_profile)
 		epp = "balance_performance";
 		platform = "balanced";
 	} else if (!strcmp(name, "performance") || !strcmp(name, "bp")) {
+		gov = "performance";
 		epp = "performance";
 		platform = "balanced-performance";
 	} else if (!strcmp(name, "turbo")) {
@@ -481,9 +482,9 @@ int ps_cpu_power_for_profile(const char *thermal_name)
 		epp = "balance_power";
 	} else if (!strcmp(thermal_name, "balanced")) {
 		epp = "balance_performance";
-	} else if (!strcmp(thermal_name, "balanced-performance")) {
-		epp = "performance";
-	} else if (!strcmp(thermal_name, "performance")) {
+	} else if (!strcmp(thermal_name, "balanced-performance") ||
+		   !strcmp(thermal_name, "performance")) {
+		/* From "desempenho" up: lock governor to performance */
 		gov = "performance";
 		epp = "performance";
 	} else {

@@ -101,8 +101,9 @@ Disabling offset cancels the timer and returns fans to auto.
 
 Governor, EPP, turbo, RAPL PL1/PL2, and max frequency are **userspace**
 concerns (sysfs `cpufreq` / `powercap`). `ps_mode_set()` / `perfectsense mode set`
-best-effort apply matching governor/EPP for the thermal profile (and keep a
-CPU snapshot for turbo restore). Named `cpu preset` values remain available
+best-effort apply matching governor/EPP for the thermal profile (from
+balanced-performance upward the governor is `performance`) and keep a
+CPU snapshot for turbo restore. Named `cpu preset` values remain available
 for explicit composition and `--sync-profile`.
 
 ## Packaging

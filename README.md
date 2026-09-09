@@ -45,8 +45,9 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 3 in tree:** thermal profiles plus CPU/GPU fan duty get and
-set/auto via sysfs. See [implementation status](docs/en/implementation/README.md).
+**Phase 4 in tree:** `libperfectsense` + CLI (`status` / `mode` / `fan`) with
+`--json`, talking to the Phase 3 sysfs ABI. No daemon required. See
+[implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).

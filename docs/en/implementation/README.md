@@ -8,8 +8,8 @@
 | Area | State |
 |------|-------|
 | Kernel module | **Phase 3:** profiles + fans (duty live / target set/auto) |
-| libperfectsense | Placeholder directory |
-| CLI | Phase 0 stub binary |
+| libperfectsense | **Phase 4:** sysfs client library |
+| CLI | **Phase 4:** `status` / `mode` / `fan` + `--json` |
 | perfectsensed / D-Bus | Not implemented |
 | FanAggressor | Not implemented |
 | Arch package | PKGBUILD skeleton (not installable) |
@@ -38,6 +38,29 @@ Unload conflicting Acer gaming WMI modules before `insmod`.
 - Entering `quiet` / `low-power` also forces fan auto.
 
 **AC policy:** on battery, `quiet` / `balanced-performance` / `performance` → `-EOPNOTSUPP`.
+
+### Userspace (Meson)
+
+Build: `meson setup build && meson compile -C build`
+
+| Binary / lib | Role |
+|--------------|------|
+| `libperfectsense` | Reads/writes sysfs; no daemon |
+| `perfectsense` | CLI over the library |
+
+```text
+perfectsense [--json] status
+perfectsense [--json] mode get|set <name>
+perfectsense [--json] fan get|set <cpu> <gpu>|auto
+```
+
+Mode names match sysfs (`low-power`, `quiet`, `balanced`,
+`balanced-performance`, `performance`). Aliases: `eco`, `turbo`, `bp`.
+
+Override path: `PERFECTSENSE_SYSFS`.
+
+Writes need root or a future `perfect_sense` group ACL; reads are world-readable
+on the default sysfs mode.
 
 ## Not yet
 

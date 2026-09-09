@@ -8,8 +8,8 @@
 | Área | Estado |
 |------|--------|
 | Módulo kernel | **Fase 3:** perfis + fans (duty vivo / target set/auto) |
-| libperfectsense | Placeholder |
-| CLI | Stub Fase 0 |
+| libperfectsense | **Fase 4:** cliente sysfs |
+| CLI | **Fase 4:** `status` / `mode` / `fan` + `--json` |
 | perfectsensed / D-Bus | Não implementado |
 | FanAggressor | Não implementado |
 | Pacote Arch | Skeleton PKGBUILD |
@@ -27,6 +27,15 @@
 | `platform_profile` | RW | Classe ACPI |
 
 Unload restaura fans a auto. `quiet` / `low-power` também forçam auto.
+
+### Userspace (Meson)
+
+```text
+meson setup build && meson compile -C build
+build/perfectsense [--json] status|mode|fan …
+```
+
+Biblioteca `libperfectsense` sobre sysfs; sem daemon. Aliases: `eco`, `turbo`, `bp`.
 
 ## Ainda não
 

@@ -1,28 +1,24 @@
 # Estado da implementação
 
 > **Documente apenas o que existe de fato no repositório.**
-> Trabalho planejado: [../roadmap/roadmap.md](../roadmap/roadmap.md).
 
 ## Estado atual
 
 | Área | Estado |
 |------|--------|
-| Módulo kernel | **Fase 6:** API **5** |
-| libperfectsense | **Fase 8:** + CPU power |
-| CLI | + `cpu` presets |
-| perfectsensed / D-Bus | **Fase 7+8** |
-| FanAggressor | Não implementado |
+| Kernel | API **5** |
+| CLI / lib | até Fase 9 |
+| perfectsensed | FanAggressor (timerfd só se ligado) |
 | Pacote Arch | Skeleton |
 
-## CPU power (Fase 8)
+## FanAggressor
 
 ```text
-perfectsense cpu status|snapshot|preset|restore|set …
+perfectsense fan aggressor on|off|status
 ```
 
-Presets: `power`, `balanced`, `performance`, `turbo` (+ `--sync-profile`).
-Snapshot em `/run/perfectsense/cpu-power.snap`.
+Desligado por padrão (sem timer). Config: `/run/perfectsense/fan-aggressor.conf`.
 
 ## Ainda não
 
-FanAggressor, tecla turbo → D-Bus, polish de pacote.
+Tecla turbo → D-Bus, man pages, PKGBUILD instalável.

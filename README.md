@@ -45,8 +45,8 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 8 in tree:** CPU power helpers and named presets (governor / EPP /
-turbo / RAPL) via CLI and D-Bus `CpuPreset` / `CpuRestore`. See
+**Phase 9 in tree:** FanAggressor offset mode in `perfectsensed` (`timerfd` only
+while enabled; hysteresis + manual pause). See
 [implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).

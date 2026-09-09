@@ -7,45 +7,40 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 6:** API **5** (WMI features) |
-| libperfectsense | **Phase 8:** sysfs + CPU power |
-| CLI | Sysfs + `cpu` presets (no daemon required) |
-| perfectsensed / D-Bus | **Phase 7+8:** Sense1 + `CpuPreset` / `CpuRestore` |
-| FanAggressor | Not implemented |
+| Kernel module | **Phase 6:** API **5** |
+| libperfectsense | **Phase 9:** + temps + FanAggressor config |
+| CLI | + `fan aggressor` / `cpu` |
+| perfectsensed / D-Bus | **Phase 9:** timerfd offset mode |
 | Arch package | PKGBUILD skeleton |
 
-## Shipped today
+## FanAggressor (Phase 9)
 
-### CPU power (Phase 8, userspace only)
+**Default off.** No `timerfd` while disabled.
 
-Reads/writes `cpufreq`, `intel_pstate`, and package RAPL (`intel-rapl:0`).
+When enabled in `perfectsensed`:
+
+1. Poll temps every `interval_ms` (acer hwmon + coretemp package).
+2. If max(temp) ≥ `engage_c` for `hold_sec`, sample live duty and apply
+   `max(floor, native + offset)` per axis (capped at 100).
+3. Disengage when temp ≤ `engage_c - hysteresis_c` → fans auto (`0,0`).
+4. Non-auto fan targets from elsewhere pause control (manual).
 
 ```text
-perfectsense cpu status
-perfectsense cpu snapshot          # baseline for restore
-perfectsense cpu preset power|balanced|performance|turbo [--sync-profile]
-perfectsense cpu restore
-perfectsense cpu set governor|epp|turbo|max-perf|pl1|pl2 …
+perfectsense fan aggressor status|on|off
+busctl set-property … FanAggressorEnabled b true
+busctl call … FanAggressorStatus
 ```
 
-| Preset | Governor | EPP | Optional `--sync-profile` |
-|--------|----------|-----|---------------------------|
-| `power` / `eco` | powersave | power | `low-power` |
-| `balanced` | powersave | balance_performance | `balanced` |
-| `performance` / `bp` | powersave | performance | `balanced-performance` |
-| `turbo` | performance | performance | `performance` |
+Config: `/run/perfectsense/fan-aggressor.conf`  
+Defaults: engage 90 °C, hyst 3, hold 15 s, offset 20, floor 55, interval 2 s.
 
-Snapshot file: `/run/perfectsense/cpu-power.snap` (created on first preset or
-`cpu snapshot`; restore returns to that baseline).
+**Note:** acer `hwmon` is provided by nekro/`acer-wmi` today. With only
+`perfectsense.ko`, CPU temp falls back to coretemp; GPU may read 0.
 
-D-Bus: properties `CpuGovernor`, `CpuEpp`, `CpuTurbo`, `CpuMaxPerfPct`,
-`CpuPl1Uw`, `CpuPl2Uw`; methods `CpuPreset(sb)`, `CpuRestore()`.
+## Prior highlights
 
-### Prior phases
-
-Kernel API 5 + Sense1 daemon as documented previously (thermal, fans, attrs,
-RGB/logo).
+- Sense1 D-Bus, CPU presets, RGB/logo, battery/misc, profiles/fans (API 5).
 
 ## Not yet
 
-FanAggressor, hardware key events, packaging polish (Phases 9–10).
+Turbo/mode key events, man pages, installable PKGBUILD (Phase 10).

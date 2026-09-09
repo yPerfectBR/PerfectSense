@@ -7,61 +7,58 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 3:** profiles + fans (duty live / target set/auto) |
-| libperfectsense | **Phase 4:** sysfs client library |
-| CLI | **Phase 4:** `status` / `mode` / `fan` + `--json` |
+| Kernel module | **Phase 5:** profiles, fans, battery/misc attrs (API **4**) |
+| libperfectsense | **Phase 5:** sysfs client including Phase 5 attrs |
+| CLI | **Phase 5:** `status` / `mode` / `fan` / battery / usb / lcd / … + `--json` |
 | perfectsensed / D-Bus | Not implemented |
 | FanAggressor | Not implemented |
 | Arch package | PKGBUILD skeleton (not installable) |
 
 ## Shipped today
 
-### Kernel (`kmod/`, API version **3**)
+### Kernel (`kmod/`, API version **4**)
 
 Unload conflicting Acer gaming WMI modules before `insmod`.
 
 | Sysfs | Access | Meaning |
 |-------|--------|---------|
-| `…/api_version` | RO | `3` |
+| `…/api_version` | RO | `4` |
 | `…/thermal_profile` | RW | Profile name |
 | `…/thermal_profile_raw` | RO | Firmware code |
 | `…/ac_online` | RO | AC per firmware |
-| `…/fan_duty` | RO | Live CPU,GPU duty `%` from firmware (method 17) |
-| `…/fan_speed` | RW | Target `cpu,gpu` (`0,0` = auto; `100,100` = max behaviour) |
+| `…/fan_duty` | RO | Live CPU,GPU duty `%` |
+| `…/fan_speed` | RW | Target `cpu,gpu` (`0,0` = auto) |
+| `…/battery_limiter` | RW | `0`/`1` — ~80% charge health limit |
+| `…/battery_calibration` | RW | `0`/`1` — calibration mode (use carefully) |
+| `…/usb_charging` | RW | `0`/`10`/`20`/`30` minutes (or `-1` unknown) |
+| `…/lcd_override` | RW | `0`/`1` (or `-1` if firmware encoding unknown) |
+| `…/backlight_timeout` | RW | `0`/`1` KB 30s timeout (or `-1`) |
+| `…/boot_animation_sound` | RW | `0`/`1` |
 | `/sys/firmware/acpi/platform_profile` | RW | Class `perfectsense` |
 
-**Fan notes**
+On PHN16-72-74VX, `lcd_override` and `backlight_timeout` currently read as
+`-1` (same as nekro_sense on this BIOS); get/set payloads are still wired for
+known encodings.
 
-- `fan_duty` is live EC/firmware reading; it can lag after switching to auto.
-- `fan_speed` stores the last userspace target (`0,0` after auto).
-- Module unload restores fan auto.
-- Entering `quiet` / `low-power` also forces fan auto.
+**Fan notes:** live `fan_duty` can lag after auto; unload restores auto;
+`quiet` / `low-power` force auto.
 
-**AC policy:** on battery, `quiet` / `balanced-performance` / `performance` → `-EOPNOTSUPP`.
+**AC policy:** on battery, `quiet` / `balanced-performance` / `performance` →
+`-EOPNOTSUPP`.
 
 ### Userspace (Meson)
 
-Build: `meson setup build && meson compile -C build`
-
-| Binary / lib | Role |
-|--------------|------|
-| `libperfectsense` | Reads/writes sysfs; no daemon |
-| `perfectsense` | CLI over the library |
-
 ```text
-perfectsense [--json] status
-perfectsense [--json] mode get|set <name>
-perfectsense [--json] fan get|set <cpu> <gpu>|auto
+meson setup build && meson compile -C build
+LD_LIBRARY_PATH=build build/perfectsense [--json] status
+build/perfectsense battery get|on|off
+build/perfectsense battery calibration get|on|off
+build/perfectsense usb get|set <0|10|20|30>
+build/perfectsense lcd|kb-timeout|boot-sound get|set …
 ```
 
-Mode names match sysfs (`low-power`, `quiet`, `balanced`,
-`balanced-performance`, `performance`). Aliases: `eco`, `turbo`, `bp`.
-
-Override path: `PERFECTSENSE_SYSFS`.
-
-Writes need root or a future `perfect_sense` group ACL; reads are world-readable
-on the default sysfs mode.
+Writes need root (or a future group ACL).
 
 ## Not yet
 
-RGB, battery attrs, D-Bus, FanAggressor, CPU power (Phases 5+ / 7+).
+RGB/logo, D-Bus, FanAggressor, CPU power (Phases 6+).

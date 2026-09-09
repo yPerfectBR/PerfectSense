@@ -61,9 +61,21 @@ Em bateria, firmware/OEM bloqueia `quiet`, `balanced-performance` e `performance
 
 `fan_duty` = leitura viva; `fan_speed` = último target (`0,0` = auto).
 
+### Battery / misc (Fase 5)
+
+| Item | Valor |
+|------|-------|
+| Battery health | GUID5 methods `20`/`21` |
+| Limiter / calibração | modes `1` / `2` |
+| Boot sound | misc `0x06` |
+| USB charging / KB timeout | GUID3 ApgeAction |
+| LCD override | GUID4 gaming profile methods `3`/`1` |
+
+Neste PHN16-72, LCD e KB timeout leem `-1` por enquanto.
+
 ### Ainda a documentar
 
-RGB/logo, charge limit, tecla turbo/modo.
+RGB/logo, tecla turbo/modo.
 
 ## Docs relacionadas
 

@@ -85,10 +85,25 @@ On battery, OEM policy blocks `quiet`, `balanced-performance`, and `performance`
 
 Sysfs: `fan_duty` = live get; `fan_speed` = last target (`0,0` auto).
 
+### Battery / misc (Phase 5)
+
+| Item | Value |
+|------|-------|
+| Battery health GUID | `79772EC5-04B1-4bfd-843C-61E7F77B6CC9` (GUID5) |
+| Get / set battery health methods | `20` / `21` |
+| Health mode / calibration mode | `1` / `2` (function mask) |
+| Boot animation sound | misc index `0x06` (GUID4 methods 23/22) |
+| ApgeAction GUID | `61EF69EA-865C-4BC3-A502-A0DEBA0CB531` (GUID3) |
+| USB charging get/set | Apge methods `2`/`1` with fixed payloads (0/10/20/30 min) |
+| KB backlight timeout | Apge get `0x88401` / set `0x88402` family |
+| LCD override | GUID4 gaming profile get `3` / set `1` |
+
+On PHN16-72-74VX, LCD override and backlight timeout reads currently decode as
+unknown (`-1`); USB charging and battery health decode correctly.
+
 ### Still to document as phases land
 
 - Four-zone keyboard and lid logo payload sizes / selectors
-- Battery charge limit semantics
 - Hardware turbo / mode key event codes
 
 ## Related docs

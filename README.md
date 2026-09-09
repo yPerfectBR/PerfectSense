@@ -45,8 +45,8 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 4 in tree:** `libperfectsense` + CLI (`status` / `mode` / `fan`) with
-`--json`, talking to the Phase 3 sysfs ABI. No daemon required. See
+**Phase 5 in tree:** battery limiter/calibration, USB charging, LCD override,
+KB backlight timeout, and boot animation sound via sysfs + CLI. See
 [implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).

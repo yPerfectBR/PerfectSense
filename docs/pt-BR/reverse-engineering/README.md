@@ -73,9 +73,18 @@ Em bateria, firmware/OEM bloqueia `quiet`, `balanced-performance` e `performance
 
 Neste PHN16-72, LCD e KB timeout leem `-1` por enquanto.
 
+### RGB + logo (Fase 6)
+
+| Item | Valor |
+|------|-------|
+| Per-zone RGB | methods `6`/`7`, zones `1/2/4/8` |
+| KB backlight | methods `20`/`21` |
+| Logo | methods `12`/`13` |
+| Sysfs | `four_zoned_kb/*`, `back_logo/color` |
+
 ### Ainda a documentar
 
-RGB/logo, tecla turbo/modo.
+Tecla turbo/modo.
 
 ## Docs relacionadas
 

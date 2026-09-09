@@ -101,9 +101,21 @@ Sysfs: `fan_duty` = live get; `fan_speed` = last target (`0,0` auto).
 On PHN16-72-74VX, LCD override and backlight timeout reads currently decode as
 unknown (`-1`); USB charging and battery health decode correctly.
 
+### RGB keyboard + lid logo (Phase 6)
+
+| Item | Value |
+|------|-------|
+| Set / get per-zone RGB methods | `6` / `7` (GUID4); zone masks `0x1,0x2,0x4,0x8` |
+| Per-zone set payload | 4-byte buffer `{zone,R,G,B}` (not packed u64) |
+| KB backlight set / get | methods `20` / `21` (16-byte buffers) |
+| Zone enable | method `2` with `8 \| (15 << 40)` after sysinfo get |
+| Logo set / get | methods `12` / `13` (LB select byte + RGB/bri/en) |
+| Sysfs | `four_zoned_kb/per_zone_mode`, `four_zone_mode`; `back_logo/color` |
+
+Validated on PHN16-72: per-zone round-trip and logo on/off.
+
 ### Still to document as phases land
 
-- Four-zone keyboard and lid logo payload sizes / selectors
 - Hardware turbo / mode key event codes
 
 ## Related docs

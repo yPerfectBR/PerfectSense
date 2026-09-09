@@ -45,8 +45,8 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 5 in tree:** battery limiter/calibration, USB charging, LCD override,
-KB backlight timeout, and boot animation sound via sysfs + CLI. See
+**Phase 6 in tree:** four-zone keyboard RGB and lid logo via sysfs + CLI
+(`rgb` / `logo` / `lights reset`). See
 [implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).

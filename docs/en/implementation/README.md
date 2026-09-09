@@ -7,58 +7,46 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | **Phase 5:** profiles, fans, battery/misc attrs (API **4**) |
-| libperfectsense | **Phase 5:** sysfs client including Phase 5 attrs |
-| CLI | **Phase 5:** `status` / `mode` / `fan` / battery / usb / lcd / … + `--json` |
+| Kernel module | **Phase 6:** profiles, fans, misc attrs, RGB KB + logo (API **5**) |
+| libperfectsense | **Phase 6:** sysfs client including RGB/logo |
+| CLI | **Phase 6:** + `rgb` / `logo` / `lights reset` + `--json` |
 | perfectsensed / D-Bus | Not implemented |
 | FanAggressor | Not implemented |
 | Arch package | PKGBUILD skeleton (not installable) |
 
 ## Shipped today
 
-### Kernel (`kmod/`, API version **4**)
+### Kernel (`kmod/`, API version **5**)
 
 Unload conflicting Acer gaming WMI modules before `insmod`.
 
-| Sysfs | Access | Meaning |
-|-------|--------|---------|
-| `…/api_version` | RO | `4` |
-| `…/thermal_profile` | RW | Profile name |
-| `…/thermal_profile_raw` | RO | Firmware code |
-| `…/ac_online` | RO | AC per firmware |
-| `…/fan_duty` | RO | Live CPU,GPU duty `%` |
-| `…/fan_speed` | RW | Target `cpu,gpu` (`0,0` = auto) |
-| `…/battery_limiter` | RW | `0`/`1` — ~80% charge health limit |
-| `…/battery_calibration` | RW | `0`/`1` — calibration mode (use carefully) |
-| `…/usb_charging` | RW | `0`/`10`/`20`/`30` minutes (or `-1` unknown) |
-| `…/lcd_override` | RW | `0`/`1` (or `-1` if firmware encoding unknown) |
-| `…/backlight_timeout` | RW | `0`/`1` KB 30s timeout (or `-1`) |
-| `…/boot_animation_sound` | RW | `0`/`1` |
-| `/sys/firmware/acpi/platform_profile` | RW | Class `perfectsense` |
+**`…/perfect_sense/`** — thermal, fans, battery/misc, `lighting_reset` (WO).
 
-On PHN16-72-74VX, `lcd_override` and `backlight_timeout` currently read as
-`-1` (same as nekro_sense on this BIOS); get/set payloads are still wired for
-known encodings.
+**`…/four_zoned_kb/`**
 
-**Fan notes:** live `fan_duty` can lag after auto; unload restores auto;
-`quiet` / `low-power` force auto.
+| Attr | Format |
+|------|--------|
+| `per_zone_mode` | `RRGGBB,RRGGBB,RRGGBB,RRGGBB,brightness` |
+| `four_zone_mode` | `mode,speed,brightness,direction,r,g,b` |
 
-**AC policy:** on battery, `quiet` / `balanced-performance` / `performance` →
-`-EOPNOTSUPP`.
+**`…/back_logo/`**
 
-### Userspace (Meson)
+| Attr | Format |
+|------|--------|
+| `color` | `RRGGBB,brightness[,enable]` (`enable=0` forces brightness 0) |
+
+On PHN16-72-74VX, per-zone RGB get/set and logo get/set validated; `lcd_override`
+/ `backlight_timeout` still read `-1`.
+
+### Userspace
 
 ```text
 meson setup build && meson compile -C build
-LD_LIBRARY_PATH=build build/perfectsense [--json] status
-build/perfectsense battery get|on|off
-build/perfectsense battery calibration get|on|off
-build/perfectsense usb get|set <0|10|20|30>
-build/perfectsense lcd|kb-timeout|boot-sound get|set …
+build/perfectsense rgb get|set <z1> <z2> <z3> <z4> [bri]|off
+build/perfectsense logo get|set <RRGGBB> [bri] [en]|off
+build/perfectsense lights reset
 ```
-
-Writes need root (or a future group ACL).
 
 ## Not yet
 
-RGB/logo, D-Bus, FanAggressor, CPU power (Phases 6+).
+D-Bus / `perfectsensed`, FanAggressor, CPU power, key events (Phases 7+).

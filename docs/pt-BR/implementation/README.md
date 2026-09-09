@@ -23,7 +23,9 @@ perfectsense fan get   # inclui rpm
 ## Teclas
 
 `event inject` / teclas físicas → D-Bus `Hotkey`. Mode cicla (salta rejeitados);
-turbo só em AC (toggle).
+turbo só em AC (toggle). **AC offline** desce `quiet` /
+`balanced-performance` / `performance` → `balanced` (restaura ao ligar se
+possível).
 
 ## Pacote Arch
 

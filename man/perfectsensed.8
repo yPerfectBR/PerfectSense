@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSED 8 "2026-05-08" "PerfectSense 0.0.10" "System Management"
+.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.15" "System Management"
 .SH NAME
 perfectsensed \- PerfectSense system daemon (org.perfectsense.Sense1)
 .SH SYNOPSIS
@@ -49,6 +49,24 @@ on
 with platform profile sync; a second press restores the CPU snapshot
 and returns thermal to
 .B balanced
+.IP \(bu 2
+on
+.B ac\-offline
+demotes
+.BR quiet ,
+.BR balanced\-performance ,
+or
+.B performance
+to
+.B balanced
+(and drops a latched CPU turbo governor); remembers the prior profile
+.IP \(bu 2
+on
+.B ac\-online
+restores that remembered profile when possible
+.PP
+Debug injection:
+.B perfectsense event inject ac\-offline|ac\-online .
 .SH SIGNALS
 .TP
 .B ProfileChanged (s)

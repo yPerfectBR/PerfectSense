@@ -32,7 +32,9 @@ Userspace prefers `perfectsense`, then legacy `acer`, then coretemp / vendor GPU
 | Mode (`0x5`) | `KEY_PROG2` | `PERFECTSENSE_EVENT=mode` |
 | AC | — | `ac-online` / `ac-offline` |
 
-Daemon: `Hotkey(s,u)`; mode cycles (skips rejected); turbo AC-only toggle.
+Daemon: `Hotkey(s,u)`; mode cycles (skips rejected); turbo AC-only toggle;
+**AC offline demotes** `quiet` / `balanced-performance` / `performance` →
+`balanced` (restores on plug-in when possible).
 Debug: `perfectsense event inject <name>` or sysfs `inject_event`.
 
 ## FanAggressor

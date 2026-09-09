@@ -15,8 +15,8 @@
 # perfectsensed. See docs/*/cutover.md.
 
 pkgname=perfectsense
-pkgver=0.0.14
-pkgrel=2
+pkgver=0.0.15
+pkgrel=1
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
 url='https://github.com/yPerfectBR/PerfectSense'

@@ -34,6 +34,8 @@ static volatile sig_atomic_t g_stop;
 static sd_bus *g_bus;
 static sd_device_monitor *g_udev_mon;
 static char g_last_profile[64];
+/* Profile to restore after AC returns (empty if none). */
+static char g_saved_ac_profile[64];
 
 static const char *const g_mode_cycle[] = {
 	"low-power",
@@ -42,6 +44,107 @@ static const char *const g_mode_cycle[] = {
 	"balanced-performance",
 	"performance",
 };
+
+/* Matches kmod OEM policy: quiet / balanced-performance / performance need AC. */
+static int profile_requires_ac(const char *name)
+{
+	if (!name || !name[0])
+		return 0;
+	return !strcmp(name, "quiet") ||
+	       !strcmp(name, "balanced-performance") ||
+	       !strcmp(name, "performance");
+}
+
+static int emit_profile_changed(const char *profile);
+static int emit_hotkey(const char *event, unsigned key);
+
+static void emit_thermal_props(void)
+{
+	sd_bus_emit_properties_changed(
+		g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "ThermalProfile",
+		"PlatformProfile", "AcOnline", "CpuGovernor", "CpuEpp",
+		"CpuTurbo", "CpuMaxPerfPct", "CpuPl1Uw", "CpuPl2Uw", NULL);
+}
+
+/*
+ * Unplug: firmware rejects aggressive set, but may leave the current EC
+ * profile latched. Demote to balanced, drop CPU turbo latch, remember prior
+ * profile for optional restore on plug-in.
+ */
+static void handle_ac_offline(void)
+{
+	char cur[64];
+	struct ps_cpu_power cpu;
+	int r;
+
+	if (ps_mode_get(cur, sizeof(cur)) < 0)
+		snprintf(cur, sizeof(cur), "%s", g_last_profile);
+
+	if (!profile_requires_ac(cur)) {
+		(void)ps_gpu_powerd_for_profile(cur[0] ? cur : "balanced");
+		sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+						"AcOnline", NULL);
+		return;
+	}
+
+	snprintf(g_saved_ac_profile, sizeof(g_saved_ac_profile), "%s", cur);
+	fprintf(stderr, "perfectsensed: AC offline — demote %s → balanced\n",
+		cur);
+
+	memset(&cpu, 0, sizeof(cpu));
+	if (ps_cpu_power_read(&cpu) == 0 &&
+	    !strcmp(cpu.governor, "performance")) {
+		r = ps_cpu_power_restore();
+		if (r < 0)
+			fprintf(stderr, "perfectsensed: AC demote CPU: %s\n",
+				strerror(-r));
+	}
+
+	r = ps_mode_set("balanced");
+	if (r < 0) {
+		fprintf(stderr, "perfectsensed: AC demote mode: %s\n",
+			strerror(-r));
+		sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+						"AcOnline", NULL);
+		return;
+	}
+
+	snprintf(g_last_profile, sizeof(g_last_profile), "balanced");
+	(void)emit_profile_changed(g_last_profile);
+	emit_thermal_props();
+}
+
+/* Plug-in: restore profile demoted on unplug (best-effort). */
+static void handle_ac_online(void)
+{
+	int r;
+
+	if (!g_saved_ac_profile[0]) {
+		if (g_last_profile[0])
+			(void)ps_gpu_powerd_for_profile(g_last_profile);
+		sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+						"AcOnline", NULL);
+		return;
+	}
+
+	fprintf(stderr, "perfectsensed: AC online — restore %s\n",
+		g_saved_ac_profile);
+	r = ps_mode_set(g_saved_ac_profile);
+	if (r == 0) {
+		snprintf(g_last_profile, sizeof(g_last_profile), "%s",
+			 g_saved_ac_profile);
+		(void)emit_profile_changed(g_last_profile);
+		g_saved_ac_profile[0] = '\0';
+		emit_thermal_props();
+		return;
+	}
+
+	fprintf(stderr, "perfectsensed: AC restore %s: %s\n",
+		g_saved_ac_profile, strerror(-r));
+	g_saved_ac_profile[0] = '\0';
+	sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+					"AcOnline", NULL);
+}
 
 static void on_signal(int sig)
 {
@@ -200,9 +303,10 @@ static void on_udev_event(void)
 		handle_mode_key();
 	else if (!strcmp(event, "turbo"))
 		handle_turbo_key();
-	else if (!strcmp(event, "ac-online") || !strcmp(event, "ac-offline"))
-		sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
-						"AcOnline", NULL);
+	else if (!strcmp(event, "ac-offline"))
+		handle_ac_offline();
+	else if (!strcmp(event, "ac-online"))
+		handle_ac_online();
 
 out:
 	sd_device_unref(dev);
@@ -910,6 +1014,16 @@ int main(int argc, char **argv)
 		g_last_profile[0] = '\0';
 	else
 		(void)ps_gpu_powerd_for_profile(g_last_profile);
+
+	/* Boot / restart while already on battery with an AC-only profile. */
+	{
+		struct ps_status st;
+
+		memset(&st, 0, sizeof(st));
+		if (ps_status_read(&st) == 0 && !st.ac_online &&
+		    profile_requires_ac(g_last_profile))
+			handle_ac_offline();
+	}
 
 	r = fa_runtime_init();
 	if (r < 0)

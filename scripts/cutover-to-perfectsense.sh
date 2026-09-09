@@ -45,8 +45,6 @@ if [[ ! -x ${CLI} || ! -x ${DAEMON} ]]; then
   meson compile -C "${ROOT}/build"
 fi
 
-install -Dm644 "${ROOT}/packaging/dbus/org.perfectsense.Sense1.conf" \
-  /etc/dbus-1/system.d/org.perfectsense.Sense1.conf
 install -Dm644 "${ROOT}/packaging/modprobe.d/perfectsense.conf" \
   /etc/modprobe.d/perfectsense-cutover.conf
 install -Dm644 "${ROOT}/packaging/modules-load.d/perfectsense.conf" \
@@ -55,6 +53,9 @@ install -Dm644 "${ROOT}/packaging/systemd/perfectsensed.service" \
   /usr/lib/systemd/system/perfectsensed.service
 install -Dm644 "${ROOT}/packaging/systemd/perfectsensed.path" \
   /usr/lib/systemd/system/perfectsensed.path
+
+# Drop stale D-Bus policy from pre-0.0.18 (service removed)
+rm -f /etc/dbus-1/system.d/org.perfectsense.Sense1.conf
 
 # Prefer installed binaries if present; else use build/
 if [[ ! -x /usr/bin/perfectsensed ]]; then

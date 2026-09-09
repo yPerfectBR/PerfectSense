@@ -35,6 +35,9 @@ post_install() {
       systemctl start perfectsensed.service >/dev/null 2>&1 || true
   fi
 
+  # Stale policy from pre-0.0.18 D-Bus Sense1 (removed)
+  rm -f /etc/dbus-1/system.d/org.perfectsense.Sense1.conf
+
   echo
   echo 'PerfectSense cutover notes:'
   echo '  • acer-wmi and nekro_sense are blacklisted (modprobe.d)'

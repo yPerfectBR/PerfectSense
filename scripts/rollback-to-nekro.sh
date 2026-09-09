@@ -22,6 +22,7 @@ modprobe -r perfectsense 2>/dev/null || rmmod perfectsense 2>/dev/null || true
 # Remove cutover-only drop-ins (package-managed files under /usr/lib stay until uninstall)
 rm -f /etc/modprobe.d/perfectsense-cutover.conf
 rm -f /etc/modules-load.d/perfectsense-cutover.conf
+rm -f /etc/dbus-1/system.d/org.perfectsense.Sense1.conf
 
 # If the Arch package is installed, warn — blacklist still applies from /usr/lib
 if pacman -Q perfectsense >/dev/null 2>&1; then

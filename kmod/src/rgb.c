@@ -24,6 +24,9 @@ struct ps_zone_set {
 	u8 blue;
 } __packed;
 
+/* Used by mode-0 static effect → uniform per-zone paint */
+int ps_kb_zones_set(const struct ps_kb_zones *in);
+
 static int ps_wmi_buf(u32 method_id, void *in, size_t in_len,
 		      void *out_buf, size_t out_expect)
 {
@@ -160,7 +163,39 @@ int ps_kb_effect_set(const struct ps_kb_effect *in)
 		break;
 	}
 
-	if (e.mode == 0 || e.mode == 1 || e.mode == 4) {
+	/*
+	 * Mode 0 (static): LEDs are driven by per-zone SET_RGB_KB registers.
+	 * Non-zero RGB → paint all four zones uniformly (via zones_set).
+	 * RGB all zero → brightness/status only — do NOT wipe existing zones
+	 * (that is the state left after per_zone_mode / rgb set).
+	 */
+	if (e.mode == 0) {
+		if (e.red || e.green || e.blue) {
+			u32 color = ((u32)e.red << 16) | ((u32)e.green << 8) |
+				    e.blue;
+			struct ps_kb_zones z = {
+				.zone = { color, color, color, color },
+				.brightness = e.brightness,
+			};
+
+			err = ps_kb_zones_set(&z);
+			if (err)
+				return err;
+
+			return ps_set_kb_status(0, 0, e.brightness, 0, e.red,
+						e.green, e.blue);
+		}
+
+		err = ps_kb_zone_enable();
+		if (err)
+			return err;
+		err = ps_kb_power_gate(1, e.brightness);
+		if (err)
+			return err;
+		return ps_set_kb_status(0, 0, e.brightness, 0, 0, 0, 0);
+	}
+
+	if (e.mode == 1 || e.mode == 4) {
 		err = ps_kb_zone_enable();
 		if (err)
 			return err;

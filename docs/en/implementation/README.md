@@ -8,9 +8,9 @@
 | Area | State |
 |------|-------|
 | Kernel module | API **6** + **hwmon**; LCD/kb-timeout decode fixed for PHN16-72 |
-| libperfectsense | temps/RPM, RGB effect, event inject, FA etc+run |
-| CLI | `temps`, `rgb effect`, `event inject`, `fan aggressor set` |
-| perfectsensed | Hotkey + AC demote + FA timer (**no D-Bus**; SIGHUP reloads FA) |
+| libperfectsense | temps/RPM, RGB effect, event inject, fan curve |
+| CLI | `temps`, `rgb effect`, `event inject`, `fan curve` |
+| perfectsensed | Hotkey + AC demote + optional fan curve (**no D-Bus**; SIGHUP reloads curve) |
 | Packaging | Cutover: blacklist + modules-load + enable units + Conflicts |
 
 ## Sensors (no nekro required)
@@ -37,18 +37,20 @@ Daemon: `Hotkey(s,u)`; mode cycles (skips rejected); turbo AC-only toggle;
 `balanced` (restores on plug-in when possible).
 Debug: `perfectsense event inject <name>` or sysfs `inject_event`.
 
-## FanAggressor
+## Fan curve
 
-Default **off**. Config: `/etc/perfectsense/fan-aggressor.conf` (persist) +
+Default **off**. Config: `/etc/perfectsense/fan-curve.conf` (persist) +
 `/run/perfectsense/…` (override).
 
 ```text
-perfectsense fan aggressor status|on|off|set engage_c=88 offset_cpu=15 …
-perfectsense fan aggressor reload   # re-read conf in perfectsensed
+perfectsense fan curve status|on|off|set points=40:25:20,75:50:45,95:100:90 …
+perfectsense fan curve set interval_ms=1500
+perfectsense fan curve reload   # re-read conf in perfectsensed
 ```
 
-`set` / `on` / `off` persist conf and send **SIGHUP** to `perfectsensed` so the
-daemon picks up engage/offset/interval without restart.
+`set` / `on` / `off` persist conf and send **SIGHUP** to `perfectsensed`.
+Points are `temp:cpu%:gpu%` with linear interpolation (CPU duty←CPU temp,
+GPU duty←GPU temp). Manual `fan set` pauses the curve until auto/curve resumes.
 
 ## Control plane
 

@@ -8,7 +8,7 @@
    when breaking changes are intentional. **Interfaces and automation talk to
    sysfs (or `libperfectsense`) — the closest path to the hardware.** There is
    no D-Bus control plane and the CLI is not an IPC layer.
-3. **Idle by default.** No temperature polling unless FanAggressor (offset mode)
+3. **Idle by default.** No temperature polling unless a custom fan curve
    is explicitly enabled.
 4. **Events over busy-wait.** Firmware/key events surface as kernel uevent/input;
    `perfectsensed` applies policy (mode cycle, AC demote, turbo) and logs; UIs
@@ -17,7 +17,7 @@
    (manual status / one-shots). UIs must **not** shell out to it; link
    `libperfectsense` or write sysfs (usually as root / capable group).
 6. **Root daemon for policy only.** `perfectsensed` runs as a **system** service
-   for hotkeys/AC/FanAggressor—not as an RPC bus.
+   for hotkeys/AC/optional fan curve—not as an RPC bus.
 7. **PHN16-72-74VX first.** Probe is DMI-gated; structure allows later quirks
    without scattering `#ifdef` soup.
 
@@ -61,7 +61,7 @@ flowchart TB
 | Platform profile | standard `/sys/firmware/acpi/platform_profile` | Desktop-wide convention (`power-profiles-daemon`, etc.) |
 | Shared library | `libperfectsense` | C API for UIs — same ABI as sysfs, no process hop |
 | CLI | `perfectsense` | Human manual tool only |
-| Daemon | `perfectsensed` | Hotkeys / AC / FanAggressor policy (not RPC) |
+| Daemon | `perfectsensed` | Hotkeys / AC / optional fan curve (not RPC) |
 
 We intentionally **do not** reuse `predator_sense` as the primary sysfs name:
 this project is a clean replacement stack, not a drop-in path clone for older
@@ -85,19 +85,22 @@ Coexistence is fragile (duplicate platform devices, racing method calls) and is
 2. **`perfectsensed`:** subscribes via sd-device, debounces, applies policy
    (profile cycle, turbo latch, AC demote/restore).
 3. **One-shot CLI (humans):** optional flashlight over the same sysfs ABI.
-   FanAggressor `set`/`on`/`off` save config and send **SIGHUP** so the daemon
+   Fan curve `set`/`on`/`off` save config and send **SIGHUP** so the daemon
    reloads the timer. Desktop UIs should use lib/sysfs, not `system("perfectsense …")`.
 
-## FanAggressor (offset mode)
+## Fan control
 
-When disabled (default): firmware/EC auto curve only; daemon does not run a
-thermal timer.
+Three layers:
 
-When enabled: `perfectsensed` uses `timerfd` to apply an additive offset on top
-of a **temperature-estimated** native duty (this EC’s `fan_duty` sysfs in auto
-echoes the last custom command, not live PWM). While engaged it re-applies
-`fan_set` every tick so thermal profile changes cannot silently steal control.
-Disengage restores firmware auto.
+1. **Firmware auto** (`fan auto` / target `0,0`) — EC owns the curve.
+2. **Manual** (`fan set cpu gpu`) — one-shot duty; pauses an active userspace curve.
+3. **Custom curve** (`fan curve …`, default **off**) — `perfectsensed` polls temps
+   on `timerfd` and applies interpolated duties from configured points
+   (`temp:cpu%:gpu%`). CPU duty follows CPU temp; GPU duty follows GPU temp.
+   Re-applies every tick so thermal profile changes cannot silently steal control.
+
+On PHN16-72, `fan_duty` while in firmware-auto often echoes the last custom
+command rather than live PWM — use RPM/temps to observe auto behaviour.
 
 ## CPU power controls
 

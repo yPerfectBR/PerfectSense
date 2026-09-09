@@ -1,5 +1,5 @@
 [Unit]
-Description=PerfectSense hardware daemon (hotkeys, AC policy, FanAggressor)
+Description=PerfectSense hardware daemon (hotkeys, AC policy, optional fan curve)
 Documentation=man:perfectsensed(8)
 Documentation=https://github.com/yPerfectBR/PerfectSense
 After=systemd-udevd.service

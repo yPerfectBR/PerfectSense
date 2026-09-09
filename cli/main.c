@@ -12,8 +12,8 @@
 
 static int g_json;
 
-/* Ask perfectsensed to re-read FanAggressor conf (SIGHUP; best-effort). */
-static void daemon_fa_reload(void)
+/* Ask perfectsensed to re-read fan-curve conf (SIGHUP; best-effort). */
+static void daemon_reload(void)
 {
 	(void)system(
 		"systemctl kill -s HUP perfectsensed.service >/dev/null 2>&1 || "
@@ -32,7 +32,7 @@ static void usage(FILE *out)
 		"  gpu powerd get|on|off       Dynamic Boost service (~80W / ~140W)\n"
 		"  gpu powermizer get|set …    Preferred Mode (best-effort)\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
-		"  fan aggressor on|off|status|set|reload key=val…\n"
+		"  fan curve on|off|status|set|reload …\n"
 		"  battery get|on|off          80% charge limiter\n"
 		"  battery calibration get|on|off\n"
 		"  usb get|set <0|10|20|30>    USB charging while off (minutes)\n"
@@ -55,6 +55,7 @@ static void usage(FILE *out)
 		"            balanced-performance | performance\n"
 		"Aliases:    eco→low-power, turbo→performance, bp→balanced-performance\n"
 		"CPU presets: power|eco, balanced, performance|bp, turbo\n"
+		"Fan curve points: temp:cpu%:gpu% (CSV), e.g. 40:25:20,75:50:45,95:100:90\n"
 		"\n"
 		"Env: PERFECTSENSE_SYSFS / PERFECTSENSE_KB_SYSFS / PERFECTSENSE_LOGO_SYSFS\n",
 		out);
@@ -251,53 +252,54 @@ static int cmd_fan(int argc, char **argv)
 	}
 	sub = argv[0];
 
-	if (!strcmp(sub, "aggressor")) {
-		struct ps_fan_aggressor_config cfg;
-		int cpu_c = 0, gpu_c = 0;
+	if (!strcmp(sub, "curve")) {
+		struct ps_fan_curve_config cfg;
+		int cpu_c = 0, gpu_c = 0, i;
+		unsigned eval_c = 0, eval_g = 0;
 
 		if (argc < 2) {
-			fputs("perfectsense: fan aggressor on|off|status|set|reload …\n",
+			fputs("perfectsense: fan curve on|off|status|set|reload …\n",
 			      stderr);
 			return 1;
 		}
-		ps_fan_aggressor_config_load(&cfg);
+		ps_fan_curve_config_load(&cfg);
 		if (!strcmp(argv[1], "status")) {
 			(void)ps_temps_read(&cpu_c, &gpu_c);
+			ps_fan_curve_eval(&cfg, cpu_c, gpu_c, &eval_c, &eval_g);
 			if (g_json) {
-				printf(
-					"{\"enabled\":%s,\"engage_c\":%d,"
-					"\"hysteresis_c\":%d,\"hold_sec\":%d,"
-					"\"interval_ms\":%d,"
-					"\"offset_cpu\":%d,\"offset_gpu\":%d,"
-					"\"floor_cpu\":%d,\"floor_gpu\":%d,"
-					"\"temp_cpu\":%d,\"temp_gpu\":%d}\n",
-					cfg.enabled ? "true" : "false",
-					cfg.engage_c, cfg.hysteresis_c,
-					cfg.hold_sec, cfg.interval_ms,
-					cfg.offset_cpu, cfg.offset_gpu,
-					cfg.floor_cpu, cfg.floor_gpu, cpu_c,
-					gpu_c);
+				printf("{\"enabled\":%s,\"interval_ms\":%d,\"n_points\":%d,",
+				       cfg.enabled ? "true" : "false",
+				       cfg.interval_ms, cfg.n_points);
+				printf("\"temp_cpu\":%d,\"temp_gpu\":%d,"
+				       "\"eval\":{\"cpu\":%u,\"gpu\":%u},\"points\":[",
+				       cpu_c, gpu_c, eval_c, eval_g);
+				for (i = 0; i < cfg.n_points; i++) {
+					printf("%s{\"temp\":%d,\"cpu\":%u,\"gpu\":%u}",
+					       i ? "," : "", cfg.points[i].temp_c,
+					       cfg.points[i].cpu_pct,
+					       cfg.points[i].gpu_pct);
+				}
+				puts("]}");
 			} else {
-				printf("fan aggressor: %s\n",
+				printf("fan curve: %s\n",
 				       cfg.enabled ? "on" : "off");
-				printf("engage_c: %d (hyst %d, hold %ds, interval %dms)\n",
-				       cfg.engage_c, cfg.hysteresis_c,
-				       cfg.hold_sec, cfg.interval_ms);
-				printf("offset: %d,%d  floor: %d,%d\n",
-				       cfg.offset_cpu, cfg.offset_gpu,
-				       cfg.floor_cpu, cfg.floor_gpu);
-				printf("temp: cpu=%d gpu=%d\n", cpu_c, gpu_c);
+				printf("interval_ms: %d\n", cfg.interval_ms);
+				printf("points (temp:cpu%%:gpu%%):");
+				for (i = 0; i < cfg.n_points; i++)
+					printf(" %d:%u:%u", cfg.points[i].temp_c,
+					       cfg.points[i].cpu_pct,
+					       cfg.points[i].gpu_pct);
+				putchar('\n');
+				printf("temp: cpu=%d gpu=%d → eval duty %u,%u\n",
+				       cpu_c, gpu_c, eval_c, eval_g);
 				puts("note: timer runs in perfectsensed when enabled");
 			}
 			return 0;
 		}
 		if (!strcmp(argv[1], "set")) {
-			int i;
-
 			for (i = 2; i < argc; i++) {
 				char *eq = strchr(argv[i], '=');
 				char key[32];
-				int val;
 
 				if (!eq) {
 					fputs("perfectsense: expected key=value\n",
@@ -306,68 +308,58 @@ static int cmd_fan(int argc, char **argv)
 				}
 				*eq = '\0';
 				snprintf(key, sizeof(key), "%s", argv[i]);
-				val = atoi(eq + 1);
-				*eq = '=';
-				if (!strcmp(key, "engage_c"))
-					cfg.engage_c = val;
-				else if (!strcmp(key, "hysteresis_c"))
-					cfg.hysteresis_c = val;
-				else if (!strcmp(key, "hold_sec"))
-					cfg.hold_sec = val;
-				else if (!strcmp(key, "interval_ms"))
-					cfg.interval_ms = val;
-				else if (!strcmp(key, "offset_cpu"))
-					cfg.offset_cpu = val;
-				else if (!strcmp(key, "offset_gpu"))
-					cfg.offset_gpu = val;
-				else if (!strcmp(key, "floor_cpu"))
-					cfg.floor_cpu = val;
-				else if (!strcmp(key, "floor_gpu"))
-					cfg.floor_gpu = val;
-				else if (!strcmp(key, "enabled"))
-					cfg.enabled = val ? 1 : 0;
-				else {
+				if (!strcmp(key, "interval_ms")) {
+					cfg.interval_ms = atoi(eq + 1);
+				} else if (!strcmp(key, "enabled")) {
+					cfg.enabled = atoi(eq + 1) ? 1 : 0;
+				} else if (!strcmp(key, "points")) {
+					err = ps_fan_curve_parse_points(eq + 1,
+									&cfg);
+					if (err)
+						return fail(err);
+				} else {
 					fprintf(stderr,
 						"perfectsense: unknown key '%s'\n",
 						key);
 					return 1;
 				}
+				*eq = '=';
 			}
-			err = ps_fan_aggressor_config_save(&cfg);
+			err = ps_fan_curve_config_save(&cfg);
 			if (err)
 				return fail(err);
-			daemon_fa_reload();
+			daemon_reload();
 			if (g_json)
 				puts("{\"ok\":true}");
 			else
-				puts("fan aggressor config saved (daemon reloaded)");
+				puts("fan curve config saved (daemon reloaded)");
 			return 0;
 		}
 		if (!strcmp(argv[1], "on") || !strcmp(argv[1], "off")) {
 			cfg.enabled = !strcmp(argv[1], "on");
-			err = ps_fan_aggressor_config_save(&cfg);
+			err = ps_fan_curve_config_save(&cfg);
 			if (err)
 				return fail(err);
-			daemon_fa_reload();
+			daemon_reload();
 			if (!cfg.enabled)
 				(void)ps_fan_set_auto();
 			if (g_json)
-				printf("{\"ok\":true,\"fan_aggressor\":%s}\n",
+				printf("{\"ok\":true,\"fan_curve\":%s}\n",
 				       cfg.enabled ? "true" : "false");
 			else
-				printf("fan aggressor: %s\n",
+				printf("fan curve: %s\n",
 				       cfg.enabled ? "on" : "off");
 			return 0;
 		}
 		if (!strcmp(argv[1], "reload")) {
-			daemon_fa_reload();
+			daemon_reload();
 			if (g_json)
 				puts("{\"ok\":true}");
 			else
-				puts("fan aggressor: daemon reload requested");
+				puts("fan curve: daemon reload requested");
 			return 0;
 		}
-		fputs("perfectsense: fan aggressor on|off|status|set|reload …\n",
+		fputs("perfectsense: fan curve on|off|status|set|reload …\n",
 		      stderr);
 		return 1;
 	}

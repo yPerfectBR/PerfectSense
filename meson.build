@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.23',
+  version: '0.0.24',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -22,7 +22,7 @@ libperfectsense = library(
     'lib/perfectsense.c',
     'lib/cpu_power.c',
     'lib/temps.c',
-    'lib/fan_aggressor.c',
+    'lib/fan_curve.c',
     'lib/gpu_nvidia.c',
   ],
   include_directories: inc,
@@ -43,7 +43,7 @@ cli_exe = executable(
 
 daemon_exe = executable(
   'perfectsensed',
-  ['daemon/main.c', 'daemon/fan_aggressor_runtime.c'],
+  ['daemon/main.c', 'daemon/fan_curve_runtime.c'],
   include_directories: [inc, include_directories('daemon')],
   link_with: libperfectsense,
   dependencies: [libsystemd],

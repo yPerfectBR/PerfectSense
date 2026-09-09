@@ -60,7 +60,7 @@ comandos concretos após cada feature pequena.
 Nota: a fase original previa `org.perfectsense.Sense1`. A partir de **0.0.18** o
 daemon **não** exporta D-Bus — só política (hotkeys/AC/FA) sobre sysfs.
 
-## Fase 7 (legado) — `perfectsensed` + D-Bus (sem FanAggressor)
+## Fase 7 (legado) — `perfectsensed` + D-Bus (supersedido: sem D-Bus)
 
 - Unit **system** (root)
 - `org.perfectsense.Sense1`
@@ -72,16 +72,16 @@ daemon **não** exporta D-Bus — só política (hotkeys/AC/FA) sobre sysfs.
 - Presets opcionais
 - Sem loop térmico
 
-## Fase 9 — FanAggressor (offset)
+## Fase 9 — Curva de fan (substitui FanAggressor offset)
 
 - Liga/desliga sob demanda
 - Timer **só enquanto ativo**
-- Histerese; offsets por eixo
+- Pontos `temp:cpu%:gpu%` com interpolação
 - Off → auto
 
 ## Fase 10 — Eventos de tecla + polish
 
-- Uevent/input → D-Bus
+- Uevent/input → política no daemon (sem D-Bus de controlo)
 - Man pages, PKGBUILD, hardening
 
 ## Fora de escopo
@@ -93,6 +93,5 @@ daemon **não** exporta D-Bus — só política (hotkeys/AC/FA) sobre sysfs.
 
 ## Porquê esta ordem
 
-Perfil + fans validam WMI cedo. Attrs/RGB vêm depois. D-Bus após CLI estável.
-CPU power (só userspace) antes do FanAggressor. Offset por último: único trabalho
-periódico intencional.
+Perfil + fans validam WMI cedo. Attrs/RGB vêm depois. CPU power (só userspace).
+Curva de fan opcional por último: único trabalho periódico intencional.

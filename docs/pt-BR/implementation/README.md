@@ -7,8 +7,8 @@
 | Área | Estado |
 |------|--------|
 | Kernel | API **6** + hwmon `perfectsense` (temp/RPM) |
-| CLI / lib | `temps`, `rgb effect`, `event inject`, FA set |
-| perfectsensed | Hotkey + debounce; FanAggressor |
+| CLI / lib | `temps`, `rgb effect`, `event inject`, `fan curve` |
+| perfectsensed | Hotkey + AC demote + curva de fan opcional (SIGHUP) |
 | Pacote Arch | Cutover (blacklist, enable, Conflicts) |
 
 ## Sensores
@@ -24,9 +24,20 @@ perfectsense fan get   # inclui rpm
 
 `event inject` / teclas físicas → política no daemon (uevent). Mode cicla
 (salta rejeitados); turbo só em AC. **Sem D-Bus** — UI usa sysfs/CLI/input.
-turbo só em AC (toggle). **AC offline** desce `quiet` /
-`balanced-performance` / `performance` → `balanced` (restaura ao ligar se
-possível).
+**AC offline** desce `quiet` / `balanced-performance` / `performance` →
+`balanced` (restaura ao ligar se possível).
+
+## Curva de fan
+
+Default **off**. Pontos `temp:cpu%:gpu%`; o daemon aplica quando ligado.
+
+```text
+perfectsense fan curve status
+perfectsense fan curve set points=40:25:20,75:50:45,95:100:90
+perfectsense fan curve on
+```
+
+Também: `fan get|set|auto` (nativo EC / manual).
 
 ## Pacote Arch
 
@@ -40,12 +51,6 @@ Como no nekro: `nvidia-open` + `nvidia-powerd` para ~80 W→~140 W.
 
 PerfectSense: **off** em `low-power`/`quiet`; **on** de `balanced` para cima.
 
-FanAggressor: `set`/`on`/`off` gravam conf e chamam `FanAggressorReload` no
-daemon (sem restart).
-
 ```text
-perfectsense fan aggressor set offset_cpu=25
-perfectsense fan aggressor reload
-```
 perfectsense gpu powerd get|on|off
 ```

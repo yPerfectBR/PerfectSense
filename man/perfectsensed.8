@@ -1,7 +1,7 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.23" "System Management"
+.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.24" "System Management"
 .SH NAME
-perfectsensed \- PerfectSense hardware daemon (hotkeys, AC, FanAggressor)
+perfectsensed \- PerfectSense hardware daemon (hotkeys, AC, optional fan curve)
 .SH SYNOPSIS
 .B perfectsensed
 .SH DESCRIPTION
@@ -53,17 +53,18 @@ on
 .B ac\-online
 restores that remembered profile when possible
 .IP \(bu 2
-runs the FanAggressor
+runs an optional
+.B fan curve
 .B timerfd
-only while offset mode is enabled in config
+only while enabled in config (temp→duty points)
 .PP
 .B SIGHUP
-reloads FanAggressor config from
-.I /etc/perfectsense/fan-aggressor.conf
+reloads fan-curve config from
+.I /etc/perfectsense/fan-curve.conf
 and
-.I /run/perfectsense/fan-aggressor.conf
+.I /run/perfectsense/fan-curve.conf
 (also done by
-.B perfectsense fan aggressor set|on|off|reload ).
+.B perfectsense fan curve set|on|off|reload ).
 .PP
 Debug injection:
 .B perfectsense event inject
@@ -78,10 +79,10 @@ Unit file (also
 .BR perfectsensed.path ).
 .TP
 .I /run/perfectsense/
-Runtime directory (FanAggressor config).
+Runtime directory (fan-curve config / status).
 .TP
-.I /etc/perfectsense/fan\-aggressor.conf
-Persisted FanAggressor config.
+.I /etc/perfectsense/fan\-curve.conf
+Persisted custom fan curve.
 .SH SEE ALSO
 .BR perfectsense (1),
 .BR systemd.service (5)

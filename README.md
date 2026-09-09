@@ -26,8 +26,8 @@ for the user, not as the integration bus. For live keys, watch udev or the
 - First-class control of thermal profiles, fans, battery/health attrs, RGB, and
   related Predator firmware features on Linux.
 - Stable, documented sysfs ABI (`api_version`) for any consumers.
-- Event-oriented userspace: no busy loops by default; optional FanAggressor
-  offset logic runs **only when enabled**.
+- Event-oriented userspace: no busy loops by default; optional **fan curve**
+  runs **only when enabled**.
 - Portable integration surface for future UIs (bar widgets, control centers,
   scripts) without shipping a desktop frontend here.
 - Focused on **PHN16-72-74VX**; code kept clean so other Predator V4 relatives
@@ -37,7 +37,7 @@ for the user, not as the integration bus. For live keys, watch udev or the
 
 ```
 perfectsense (CLI) ──► libperfectsense ──► sysfs
-perfectsensed (system) ──► hotkeys / AC policy / FanAggressor timer
+perfectsensed (system) ──► hotkeys / AC policy / optional fan curve
          │
          ▼
   perfectsense.ko ──► ACPI WMI ──► Embedded Controller
@@ -48,7 +48,7 @@ perfectsensed (system) ──► hotkeys / AC policy / FanAggressor timer
 | `perfectsense.ko` | WMI/EC access; sysfs; `platform_profile`; input/uevents |
 | `libperfectsense` | Typed helpers over sysfs (C API for UIs/automation) |
 | `perfectsense` | **Human** CLI only (status / one-shot checks; not an IPC layer) |
-| `perfectsensed` | System daemon: hotkeys, AC demote, optional FanAggressor |
+| `perfectsensed` | System daemon: hotkeys, AC demote, optional fan curve |
 
 Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 `acer-wmi` / conflicting out-of-tree modules when using PerfectSense.

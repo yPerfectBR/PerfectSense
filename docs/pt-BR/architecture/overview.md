@@ -6,12 +6,12 @@
    `perfectsense.ko`. O userspace nunca invoca WMI diretamente.
 2. **Sysfs é a ABI.** Apps/interfaces falam com **sysfs** ou **`libperfectsense`**
    (caminho mais perto do hardware). **Sem D-Bus.** A CLI **não** é camada IPC.
-3. **Idle por omissão.** Sem poll de temperatura salvo FanAggressor ativo.
+3. **Idle por omissão.** Sem poll de temperatura salvo curva de fan ativa.
 4. **Eventos em vez de busy-wait.** Teclas/firmware → uevent/input; o daemon
    aplica política. UIs escutam udev/input.
 5. **CLI é para humanos.** `/usr/bin/perfectsense` = lanterna manual. UI **não**
    deve fazer `system("perfectsense …")` — liga à lib ou escreve sysfs.
-6. **Daemon root só para política.** Hotkeys/AC/FanAggressor — não é RPC.
+6. **Daemon root só para política.** Hotkeys/AC/curva de fan opcional — não é RPC.
 7. **PHN16-72-74VX primeiro.**
 
 ## Caminho WMI
@@ -56,8 +56,8 @@ flowchart TB
 
 1. **Kernel:** turbo / modo / AC → uevent + input.
 2. **`perfectsensed`:** assina (sd-device), debounce, aplica política; **SIGHUP**
-   recarrega FanAggressor.
-3. **CLI:** get/set sysfs sem precisar do daemon (exceto timer FA).
+   recarrega a curva de fan.
+3. **CLI:** get/set sysfs sem precisar do daemon (exceto timer da curva).
 
 ## Empacotamento
 

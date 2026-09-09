@@ -132,27 +132,28 @@ int ps_cpu_power_preset(const char *name, int sync_platform_profile);
 /* Best-effort CPU knobs for a thermal_profile name (used by ps_mode_set). */
 int ps_cpu_power_for_profile(const char *thermal_name);
 
-/* Phase 9 — FanAggressor (config shared; timer in daemon) */
-struct ps_fan_aggressor_config {
-	int enabled;
-	int engage_c;
-	int hysteresis_c;
-	int hold_sec;
-	int interval_ms;
-	int offset_cpu;
-	int offset_gpu;
-	int floor_cpu;
-	int floor_gpu;
-};
-
 int ps_temps_read(int *cpu_c, int *gpu_c);
 int ps_fan_rpm_get(int *cpu_rpm, int *gpu_rpm);
-void ps_fan_aggressor_defaults(struct ps_fan_aggressor_config *cfg);
-int ps_fan_aggressor_config_load(struct ps_fan_aggressor_config *cfg);
-int ps_fan_aggressor_config_save(const struct ps_fan_aggressor_config *cfg);
-void ps_fan_aggressor_compute_duty(const struct ps_fan_aggressor_config *cfg,
-				   unsigned native_cpu, unsigned native_gpu,
-				   unsigned *out_cpu, unsigned *out_gpu);
+
+/* Custom fan curve (temp→duty). Timer in perfectsensed when enabled. */
+#define PS_FAN_CURVE_MAX_POINTS 16
+struct ps_fan_curve_point {
+	int temp_c;
+	unsigned cpu_pct;
+	unsigned gpu_pct;
+};
+struct ps_fan_curve_config {
+	int enabled;
+	int interval_ms;
+	int n_points;
+	struct ps_fan_curve_point points[PS_FAN_CURVE_MAX_POINTS];
+};
+void ps_fan_curve_defaults(struct ps_fan_curve_config *cfg);
+int ps_fan_curve_config_load(struct ps_fan_curve_config *cfg);
+int ps_fan_curve_config_save(const struct ps_fan_curve_config *cfg);
+int ps_fan_curve_parse_points(const char *csv, struct ps_fan_curve_config *cfg);
+void ps_fan_curve_eval(const struct ps_fan_curve_config *cfg, int cpu_c,
+		       int gpu_c, unsigned *out_cpu, unsigned *out_gpu);
 
 const char *ps_strerror(int err);
 

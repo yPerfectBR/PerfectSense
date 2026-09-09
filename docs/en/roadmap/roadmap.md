@@ -79,7 +79,7 @@ spam in `dmesg`.
 Original plan exported `org.perfectsense.Sense1`. As of **0.0.18** the daemon
 has **no D-Bus API**; control is sysfs/CLI only. Daemon retains hotkey/AC/FA.
 
-## Phase 7 (legacy plan) — `perfectsensed` + D-Bus (no FanAggressor yet)
+## Phase 7 (legacy plan) — `perfectsensed` + D-Bus (superseded: no D-Bus)
 
 - Systemd **system** unit (root)
 - `org.perfectsense.Sense1` properties + signals (profile, basic state)
@@ -97,24 +97,24 @@ confirm CLI still functions.
 **Manual tests:** apply/revert presets; verify sysfs `powercap`/`cpufreq`; idle
 power sanity.
 
-## Phase 9 — FanAggressor (offset mode)
+## Phase 9 — Custom fan curve (replaced offset FanAggressor)
 
-- Enable/disable offset mode via D-Bus/CLI/config
+- Enable/disable userspace temp→duty curve via CLI/config
 - `timerfd` loop **only while enabled**
-- Hybrid engage/disengage thresholds + hysteresis; per-axis offsets
-- Disable → cancel timer → fans auto
+- Points `temp:cpu%:gpu%` with linear interpolation
+- Manual `fan set` pauses; disable → fans auto
 
-**Manual tests:** enable under load; confirm offset; disable restores auto; CPU
-idle with feature off shows no periodic wakeups from the daemon timer.
+**Manual tests:** enable under load; confirm duties track temps; disable restores
+auto; CPU idle with feature off shows no periodic wakeups from the daemon timer.
 
 ## Phase 10 — Turbo/mode key events + polish
 
 - Kernel uevent/input for hardware keys
-- Daemon → D-Bus signals
+- Daemon policy (no D-Bus control plane)
 - Man pages, PKGBUILD completeness, hardening review
 
-**Manual tests:** key press (or `inject_event`) emits D-Bus `Hotkey`; package
-builds from a local checkout via `makepkg`.
+**Manual tests:** key press (or `inject_event`) applies policy; package builds
+from a local checkout via `makepkg`.
 
 ## Out of scope (this repository)
 
@@ -126,7 +126,5 @@ builds from a local checkout via `makepkg`.
 ## Ordering rationale
 
 Profiles and fans first prove the WMI path with minimal surface. Misc attrs and
-RGB follow once probe/set patterns are solid. D-Bus comes after a working CLI so
-UIs are not blocked on daemon bugs. CPU power is userspace-only and lands before
-FanAggressor so RAPL/EPP can be validated without a thermal timer. FanAggressor
-is last among core features because it is the only intentional periodic work.
+RGB follow once probe/set patterns are solid. CPU power is userspace-only.
+Optional fan curve is the only intentional periodic work and stays off by default.

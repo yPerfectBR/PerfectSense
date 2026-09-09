@@ -3,8 +3,8 @@
  * perfectsensed — system daemon (no D-Bus)
  *
  * - Watches PerfectSense platform uevents (mode / turbo / AC)
- * - Runs FanAggressor timerfd only while offset mode is enabled
- * - SIGHUP reloads FanAggressor config from disk
+ * - Optional custom fan curve timerfd (when enabled)
+ * - SIGHUP reloads fan-curve config from disk
  *
  * Control plane for apps/scripts: sysfs + /usr/bin/perfectsense (root).
  */
@@ -12,7 +12,7 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "perfectsense.h"
-#include "fan_aggressor_runtime.h"
+#include "fan_curve_runtime.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -320,9 +320,9 @@ int main(int argc, char **argv)
 			handle_ac_offline();
 	}
 
-	r = fa_runtime_init();
+	r = fc_runtime_init();
 	if (r < 0)
-		fprintf(stderr, "perfectsensed: fan aggressor init: %s\n",
+		fprintf(stderr, "perfectsensed: fan curve init: %s\n",
 			strerror(-r));
 
 	r = udev_monitor_setup();
@@ -331,8 +331,8 @@ int main(int argc, char **argv)
 			strerror(-r));
 
 	sd_notify(0, "READY=1");
-	fprintf(stderr, "perfectsensed: running (fan_aggressor=%s, udev=%s)\n",
-		fa_runtime_enabled() ? "on" : "off",
+	fprintf(stderr, "perfectsensed: running (fan_curve=%s, udev=%s)\n",
+		fc_runtime_enabled() ? "on" : "off",
 		g_udev_mon ? "on" : "off");
 
 	while (!g_stop) {
@@ -343,18 +343,18 @@ int main(int argc, char **argv)
 
 		if (g_reload) {
 			g_reload = 0;
-			r = fa_runtime_reload();
+			r = fc_runtime_reload();
 			if (r < 0)
 				fprintf(stderr,
-					"perfectsensed: FA reload: %s\n",
+					"perfectsensed: fan curve reload: %s\n",
 					strerror(-r));
 			else
 				fprintf(stderr,
-					"perfectsensed: FA reloaded (enabled=%s)\n",
-					fa_runtime_enabled() ? "on" : "off");
+					"perfectsensed: fan curve reloaded (enabled=%s)\n",
+					fc_runtime_enabled() ? "on" : "off");
 		}
 
-		tfd = fa_runtime_timer_fd();
+		tfd = fc_runtime_timer_fd();
 		if (tfd >= 0) {
 			fds[nfds].fd = tfd;
 			fds[nfds].events = POLLIN;
@@ -372,7 +372,7 @@ int main(int argc, char **argv)
 		}
 
 		if (nfds == 0) {
-			/* Idle: wait for signal (FA off, no udev). */
+			/* Idle: wait for signal (curve off, no udev). */
 			pause();
 			continue;
 		}
@@ -397,14 +397,14 @@ int main(int argc, char **argv)
 			if (!(fds[i].revents & POLLIN))
 				continue;
 			if (tfd >= 0 && fds[i].fd == tfd)
-				fa_runtime_on_timer();
+				fc_runtime_on_timer();
 			else if (ufd >= 0 && fds[i].fd == ufd)
 				on_udev_event();
 		}
 	}
 
 	sd_notify(0, "STOPPING=1");
-	fa_runtime_shutdown();
+	fc_runtime_shutdown();
 	if (g_udev_mon)
 		sd_device_monitor_unref(g_udev_mon);
 	return 0;

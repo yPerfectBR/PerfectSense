@@ -71,7 +71,8 @@ Em bateria, firmware/OEM bloqueia `quiet`, `balanced-performance` e `performance
 | USB charging / KB timeout | GUID3 ApgeAction |
 | LCD override | GUID4 gaming profile methods `3`/`1` |
 
-Neste PHN16-72, LCD e KB timeout leem `-1` por enquanto.
+Neste PHN16-72, `lcd_override` decodifica pelo **bit 48** do status (não pela
+equality do PHN16-71); `backlight_timeout` usa os payloads clássicos (`0` → off).
 
 ### RGB + logo (Fase 6)
 

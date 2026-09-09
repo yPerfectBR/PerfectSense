@@ -98,8 +98,15 @@ Sysfs: `fan_duty` = live get; `fan_speed` = last target (`0,0` auto).
 | KB backlight timeout | Apge get `0x88401` / set `0x88402` family |
 | LCD override | GUID4 gaming profile get `3` / set `1` |
 
-On PHN16-72-74VX, LCD override and backlight timeout reads currently decode as
-unknown (`-1`); USB charging and battery health decode correctly.
+**PHN16-72 decode notes (validated):**
+
+| Attr | Raw observation | Decode |
+|------|-----------------|--------|
+| `lcd_override` | off `0xff000101ff00`, on `0x1ff000101ff00` | bit **48** (`0x1000000000000`); set payloads unchanged |
+| `backlight_timeout` | off `0x80000` (or `0` before first set), on `0x1e0000080000` | exact match + bit family `0x1e0000000000` |
+
+Older PHN16-71 magic equality (`lcd` `0x1000001000000` / `0x1000000`) still agrees with the bit-48 test.
+USB charging and battery health decode correctly.
 
 ### RGB keyboard + lid logo (Phase 6)
 

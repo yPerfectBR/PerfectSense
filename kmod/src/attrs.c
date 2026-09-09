@@ -99,13 +99,14 @@ int ps_lcd_override_get(int *on)
 	if (err)
 		return err;
 
-	if (result == 0x1000001000000ULL)
-		*on = 1;
-	else if (result == 0x1000000ULL)
-		*on = 0;
-	else
-		return -ENODATA;
-
+	/*
+	 * PHN16-71 OEM Sense used exact magic values:
+	 *   on  = 0x1000001000000, off = 0x1000000
+	 * PHN16-72 returns a wider status word (e.g. 0xff000101ff00) where the
+	 * override latch is bit 48 (0x1000000000000). That bit is also set in
+	 * the classic "on" magic, so one test covers both SKUs.
+	 */
+	*on = (result & 0x1000000000000ULL) ? 1 : 0;
 	return 0;
 }
 
@@ -133,9 +134,14 @@ int ps_backlight_timeout_get(int *on)
 	if (err)
 		return err;
 
-	if (result == 0x1E0000080000ULL)
+	/*
+	 * Classic exact payloads: on=0x1E0000080000, off=0x80000.
+	 * Some boots return 0 before the first set; treat that as off.
+	 * Bit family 0x1E0000000000 marks "timeout enabled" across variants.
+	 */
+	if (result == 0x1E0000080000ULL || (result & 0x1E0000000000ULL))
 		*on = 1;
-	else if (result == 0x80000ULL)
+	else if (result == 0x80000ULL || result == 0)
 		*on = 0;
 	else
 		return -ENODATA;

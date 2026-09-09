@@ -7,7 +7,7 @@
 
 | Area | State |
 |------|-------|
-| Kernel module | API **6** + **hwmon** (`perfectsense`) temps/RPM |
+| Kernel module | API **6** + **hwmon**; LCD/kb-timeout decode fixed for PHN16-72 |
 | libperfectsense | temps/RPM, RGB effect, event inject, FA etc+run |
 | CLI | `temps`, `rgb effect`, `event inject`, `fan aggressor set` |
 | perfectsensed | Hotkey (+300 ms debounce), FA timer |

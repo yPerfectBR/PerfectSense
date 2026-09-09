@@ -37,7 +37,7 @@ static void usage(FILE *out)
 		"  battery get|on|off          80% charge limiter\n"
 		"  battery calibration get|on|off\n"
 		"  usb get|set <0|10|20|30>    USB charging while off (minutes)\n"
-		"  lcd get|set <0|1>           LCD override (may be -1 unsupported)\n"
+		"  lcd get|set <0|1>           LCD override (bit-48 decode)\n"
 		"  kb-timeout get|set <0|1>    KB backlight 30s timeout\n"
 		"  boot-sound get|set <0|1>    Boot animation sound\n"
 		"  rgb get|set <z1..z4> [bri]|off\n"

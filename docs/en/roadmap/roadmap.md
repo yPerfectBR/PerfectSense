@@ -108,7 +108,8 @@ idle with feature off shows no periodic wakeups from the daemon timer.
 - Daemon → D-Bus signals
 - Man pages, PKGBUILD completeness, hardening review
 
-**Manual tests:** key press emits D-Bus signal; package installs cleanly on Arch.
+**Manual tests:** key press (or `inject_event`) emits D-Bus `Hotkey`; package
+builds from a local checkout via `makepkg`.
 
 ## Out of scope (this repository)
 

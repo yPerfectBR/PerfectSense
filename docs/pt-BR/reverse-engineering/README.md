@@ -82,9 +82,17 @@ Neste PHN16-72, LCD e KB timeout leem `-1` por enquanto.
 | Logo | methods `12`/`13` |
 | Sysfs | `four_zoned_kb/*`, `back_logo/color` |
 
-### Ainda a documentar
+### Teclas / AC (Fase 10)
 
-Tecla turbo/modo.
+| Item | Valor |
+|------|-------|
+| GUID de eventos | `676AA15E-6A47-4D9F-A2CC-1E6D18D14026` |
+| Função turbo/modo | `0x07` |
+| Função AC | `0x08` |
+| Turbo / modo (PHN16-72) | `key_num` `0x4` / `0x5` |
+| AC off/on | `key_num` `0` / `1` |
+
+Kernel → input + uevent; só um driver pode instalar o notify neste GUID.
 
 ## Docs relacionadas
 

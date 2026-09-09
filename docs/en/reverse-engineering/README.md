@@ -114,9 +114,21 @@ unknown (`-1`); USB charging and battery health decode correctly.
 
 Validated on PHN16-72: per-zone round-trip and logo on/off.
 
-### Still to document as phases land
+### Hotkeys / AC events (Phase 10)
 
-- Hardware turbo / mode key event codes
+| Item | Value |
+|------|-------|
+| Event GUID | `676AA15E-6A47-4D9F-A2CC-1E6D18D14026` |
+| Turbo / mode notify function | `0x07` |
+| AC notify function | `0x08` |
+| Event buffer | 8-byte packed (`function`, `key_num`, …) |
+| PHN16-72 turbo key | `key_num == 0x4` |
+| PHN16-72 thermal mode key | `key_num == 0x5` |
+| AC offline / online | `key_num` `0` / `1` |
+
+Kernel surfaces input (`KEY_PROG1` / `KEY_PROG2`) and uevent env
+`PERFECTSENSE_EVENT` / `PERFECTSENSE_KEY`. Only one driver may own the notify
+handler on this GUID.
 
 ## Related docs
 

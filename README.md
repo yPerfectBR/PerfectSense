@@ -45,25 +45,25 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 9 in tree:** FanAggressor offset mode in `perfectsensed` (`timerfd` only
-while enabled; hysteresis + manual pause). See
+**Phase 10 in tree:** WMI turbo/mode/AC events → input + uevent; `perfectsensed`
+emits D-Bus `Hotkey`; man pages; installable Arch PKGBUILD. See
 [implementation status](docs/en/implementation/README.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).
 
-## Build (preview)
-
-Userspace (Meson) and kernel module (DKMS) are planned. Packaging target:
-**Arch Linux** (`packaging/arch/`).
+## Build
 
 ```bash
 meson setup build && meson compile -C build
-./build/perfectsense   # Phase 0 stub message only
+./build/perfectsense status
 
-# Kernel stub (needs matching kernel headers):
+# Kernel module (matching headers; on clang-built kernels use LLVM=1):
 make -C kmod
-# DKMS packaging arrives with later phases — see docs/en/roadmap/roadmap.md
+# or: make -C kmod LLVM=1
+
+# Local Arch package from a checkout:
+cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
 ```
 
 ## CLI sketch (target)

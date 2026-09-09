@@ -130,6 +130,17 @@ Kernel surfaces input (`KEY_PROG1` / `KEY_PROG2`) and uevent env
 `PERFECTSENSE_EVENT` / `PERFECTSENSE_KEY`. Only one driver may own the notify
 handler on this GUID.
 
+### Sensors / hwmon
+
+| Item | Value |
+|------|-------|
+| Supported sensors cmd | `GET_SYS_INFO` with `0x0000` |
+| Sensor reading cmd | `0x0001` + index in bits 15:8 |
+| Reading value | bits 23:8 |
+| Supported mask | bits 39:24 |
+| IDs | CPU temp `0x01`, CPU fan `0x02`, GPU fan `0x06`, GPU temp `0x0A` |
+| hwmon name | `perfectsense` (`temp1/2`, `fan1/2`) |
+
 ## Related docs
 
 - [Architecture](../architecture/overview.md) — how PerfectSense uses these

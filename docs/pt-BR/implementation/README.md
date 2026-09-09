@@ -6,31 +6,25 @@
 
 | Área | Estado |
 |------|--------|
-| Kernel | API **6** (teclas/AC → input + uevent) |
-| CLI / lib | até Fase 9+ |
-| perfectsensed | `Hotkey` + FanAggressor |
-| Man pages | `perfectsense(1)`, `perfectsensed(8)` |
-| Pacote Arch | `packaging/arch/PKGBUILD` instalável |
+| Kernel | API **6** + hwmon `perfectsense` (temp/RPM) |
+| CLI / lib | `temps`, `rgb effect`, `event inject`, FA set |
+| perfectsensed | Hotkey + debounce; FanAggressor |
+| Pacote | blacklist + modules-load + path unit |
 
-## Teclas (Fase 10)
+## Sensores
 
-Módulo: GUID de notify WMI + `PerfectSense Hotkeys` (`KEY_PROG1`/`KEY_PROG2`).
+Sem nekro: hwmon `perfectsense` (`temp1/2`, `fan1/2`).
 
-Daemon: sinal D-Bus `Hotkey(s,u)`; **mode** cicla perfis (salta rejeitados em
-bateria); **turbo** (só AC) alterna preset CPU `turbo` / restore.
+```text
+perfectsense temps
+perfectsense fan get   # inclui rpm
+```
 
-Teste sintético: escrever em `…/perfect_sense/inject_event`.
+## Teclas
+
+`event inject` / teclas físicas → D-Bus `Hotkey`. Mode cicla (salta rejeitados);
+turbo só em AC (toggle).
 
 ## FanAggressor
 
-```text
-perfectsense fan aggressor on|off|status
-```
-
-Desligado por padrão (sem timer). Config: `/run/perfectsense/fan-aggressor.conf`.
-
-## Pacote
-
-```text
-cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
-```
+Persistente em `/etc/perfectsense/fan-aggressor.conf`.

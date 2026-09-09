@@ -12,13 +12,12 @@
 
 static int g_json;
 
-/* Ask perfectsensed to re-read FanAggressor conf (best-effort). */
+/* Ask perfectsensed to re-read FanAggressor conf (SIGHUP; best-effort). */
 static void daemon_fa_reload(void)
 {
 	(void)system(
-		"busctl --system call org.perfectsense.Sense1 "
-		"/org/perfectsense/Sense1 org.perfectsense.Sense1 "
-		"FanAggressorReload >/dev/null 2>&1");
+		"systemctl kill -s HUP perfectsensed.service >/dev/null 2>&1 || "
+		"killall -HUP perfectsensed >/dev/null 2>&1");
 }
 
 static void usage(FILE *out)

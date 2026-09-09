@@ -55,7 +55,12 @@ comandos concretos após cada feature pequena.
 - Logo / lightbar
 - Helpers off/reset
 
-## Fase 7 — `perfectsensed` + D-Bus (sem FanAggressor)
+## Fase 7 — `perfectsensed` (histórico: D-Bus removido)
+
+Nota: a fase original previa `org.perfectsense.Sense1`. A partir de **0.0.18** o
+daemon **não** exporta D-Bus — só política (hotkeys/AC/FA) sobre sysfs.
+
+## Fase 7 (legado) — `perfectsensed` + D-Bus (sem FanAggressor)
 
 - Unit **system** (root)
 - `org.perfectsense.Sense1`

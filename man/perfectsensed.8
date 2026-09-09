@@ -1,53 +1,41 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.17" "System Management"
+.TH PERFECTSENSED 8 "2026-09-09" "PerfectSense 0.0.18" "System Management"
 .SH NAME
-perfectsensed \- PerfectSense system daemon (org.perfectsense.Sense1)
+perfectsensed \- PerfectSense hardware daemon (hotkeys, AC, FanAggressor)
 .SH SYNOPSIS
 .B perfectsensed
 .SH DESCRIPTION
 .B perfectsensed
 is a root
 .B systemd
-service that exports
-.B org.perfectsense.Sense1
-on the system bus.
-It mirrors PerfectSense sysfs state as D\-Bus properties and methods, runs
-FanAggressor
-.B only
-while offset mode is enabled, and translates kernel hotkey/AC uevents into the
-.B Hotkey
-signal.
+service. It does
+.B not
+export a D\-Bus API. Apps and scripts control hardware via PerfectSense
+.B sysfs
+or
+.BR perfectsense (1)
+(typically as root).
 .PP
-Hardware keys are handled in the kernel module as input events plus uevents
-with
-.B PERFECTSENSE_EVENT
-/
-.B PERFECTSENSE_KEY .
 The daemon:
 .IP \(bu 2
-emits
-.BI Hotkey "(s event, u key)"
+watches platform uevents
+.RB ( PERFECTSENSE_EVENT )
+for
+.BR mode ,
+.BR turbo ,
+.BR ac\-online ,
+and
+.B ac\-offline
 .IP \(bu 2
 on
 .B mode
-cycles thermal profiles
-.RB ( low\-power
-\(->
-.BR quiet
-\(->
-.BR balanced
-\(->
-.BR balanced\-performance
-\(->
-.BR performance ),
-skipping profiles rejected by firmware (e.g. on battery)
+cycles thermal profiles (skips firmware\-rejected ones, e.g. on battery)
 .IP \(bu 2
 on
 .B turbo
-(AC only) toggles the CPU power preset
+(AC only) toggles the CPU
 .B turbo
-with platform profile sync; a second press restores the CPU snapshot
-and returns thermal to
+preset; a second press restores the CPU snapshot and returns thermal to
 .B balanced
 .IP \(bu 2
 on
@@ -59,84 +47,43 @@ or
 .B performance
 to
 .B balanced
-(and drops a latched CPU turbo governor); remembers the prior profile
+(and clears a latched CPU turbo governor); remembers the prior profile
 .IP \(bu 2
 on
 .B ac\-online
 restores that remembered profile when possible
+.IP \(bu 2
+runs the FanAggressor
+.B timerfd
+only while offset mode is enabled in config
 .PP
-Debug injection:
-.B perfectsense event inject
-.IR turbo|mode|ac\-offline|ac\-online
-or D\-Bus
-.BR InjectEvent .
-.SH PROPERTIES
-Thermal/fans/CPU plus misc parity with sysfs/CLI, including writable
-.BR BatteryLimiter ,
-.BR BatteryCalibration ,
-.BR UsbCharging ,
-.BR LcdOverride ,
-.BR BacklightTimeout ,
-.BR BootAnimationSound ,
-.BR NvidiaPowerd ,
-and read-only
-.BR TempCpu ,
-.BR TempGpu ,
-.BR FanRpmCpu ,
-.BR FanRpmGpu ,
-.BR RgbEffect .
-.SH SIGNALS
-.TP
-.B ProfileChanged (s)
-Thermal profile name changed.
-.TP
-.B FanAggressorChanged (b)
-FanAggressor enable flag changed.
-.TP
-.B Hotkey (su)
-Firmware/key event name and numeric key code from the module.
-.SH METHODS
-.TP
-.B SetFanTarget (uu) / SetFanAuto
-Manual fan duties or firmware auto.
-.TP
-.B SetRgb (s) / SetRgbEffect (s) / SetLogo (s) / LightingReset
-Keyboard and lid lighting.
-.TP
-.B InjectEvent (s)
-Write sysfs
-.B inject_event
-(same names as the CLI).
-.TP
-.B Refresh
-Emit property-changed notifications for the Sense1 surface.
-.TP
-.B CpuPreset (sb) / CpuRestore
-Userspace CPU power presets.
-.TP
-.B FanAggressorStatus / FanAggressorReload
-Query runtime status; re-read
+.B SIGHUP
+reloads FanAggressor config from
 .I /etc/perfectsense/fan-aggressor.conf
 and
 .I /run/perfectsense/fan-aggressor.conf
-and re-arm or stop the offset timer without restarting the daemon.
+(also done by
+.B perfectsense fan aggressor set|on|off|reload ).
+.PP
+Debug injection:
+.B perfectsense event inject
+.IR turbo|mode|ac\-offline|ac\-online .
+UI consumers can also watch the input device
+.B PerfectSense Hotkeys
+or udev properties on the platform device.
 .SH FILES
 .TP
 .I /usr/lib/systemd/system/perfectsensed.service
 Unit file (also
 .BR perfectsensed.path ).
 .TP
-.I /usr/share/dbus\-1/system.d/org.perfectsense.Sense1.conf
-D\-Bus policy.
-.TP
-.I /usr/share/dbus\-1/interfaces/org.perfectsense.Sense1.xml
-Introspection XML.
-.TP
 .I /run/perfectsense/
 Runtime directory (FanAggressor config).
+.TP
+.I /etc/perfectsense/fan\-aggressor.conf
+Persisted FanAggressor config.
 .SH SEE ALSO
 .BR perfectsense (1),
-.BR systemd.service (5),
-.BR busctl (1)
+.BR systemd.service (5)
 .SH BUGS
 Report issues at https://github.com/yPerfectBR/PerfectSense

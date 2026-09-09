@@ -27,7 +27,7 @@ specific package names are **not** used or supported as first-class deps.
 | `modprobe.d/perfectsense.conf` | `blacklist acer-wmi` + `blacklist nekro_sense` |
 | `modules-load.d/perfectsense.conf` | `modprobe perfectsense` at boot |
 | `perfectsensed.path` | Start daemon when sysfs appears |
-| `perfectsensed.service` | D-Bus + hotkeys + FanAggressor + powerd sync |
+| `perfectsensed.service` | Hotkeys + AC demote + FanAggressor + powerd sync (no D-Bus) |
 | `Conflicts`/`Replaces` | Avoid packing alongside `nekro-sense` / `linuwu-sense` |
 | `post_install` | DKMS build, unload rivals, load module, **enable** units |
 

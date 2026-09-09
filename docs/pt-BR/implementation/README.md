@@ -22,7 +22,8 @@ perfectsense fan get   # inclui rpm
 
 ## Teclas
 
-`event inject` / teclas físicas → D-Bus `Hotkey`. Mode cicla (salta rejeitados);
+`event inject` / teclas físicas → política no daemon (uevent). Mode cicla
+(salta rejeitados); turbo só em AC. **Sem D-Bus** — UI usa sysfs/CLI/input.
 turbo só em AC (toggle). **AC offline** desce `quiet` /
 `balanced-performance` / `performance` → `balanced` (restaura ao ligar se
 possível).

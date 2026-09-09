@@ -74,7 +74,12 @@ notes where applicable.
 **Manual tests:** per-zone colors; brightness; logo on/off; no firmware reject
 spam in `dmesg`.
 
-## Phase 7 — `perfectsensed` + D-Bus (no FanAggressor yet)
+## Phase 7 — `perfectsensed` (note: D-Bus removed)
+
+Original plan exported `org.perfectsense.Sense1`. As of **0.0.18** the daemon
+has **no D-Bus API**; control is sysfs/CLI only. Daemon retains hotkey/AC/FA.
+
+## Phase 7 (legacy plan) — `perfectsensed` + D-Bus (no FanAggressor yet)
 
 - Systemd **system** unit (root)
 - `org.perfectsense.Sense1` properties + signals (profile, basic state)

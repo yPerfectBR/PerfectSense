@@ -1,5 +1,5 @@
 [Unit]
-Description=PerfectSense hardware daemon (org.perfectsense.Sense1)
+Description=PerfectSense hardware daemon (hotkeys, AC policy, FanAggressor)
 Documentation=man:perfectsensed(8)
 Documentation=https://github.com/yPerfectBR/PerfectSense
 After=systemd-udevd.service
@@ -9,7 +9,6 @@ ConditionPathExists=/sys/devices/platform/perfectsense/perfect_sense/api_version
 
 [Service]
 Type=notify
-BusName=org.perfectsense.Sense1
 ExecStart=/usr/bin/perfectsensed
 Restart=on-failure
 RestartSec=2

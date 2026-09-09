@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.17',
+  version: '0.0.18',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -58,16 +58,6 @@ install_data(
   install_dir: get_option('prefix') / 'lib' / 'systemd' / 'system',
 )
 
-install_data(
-  'packaging/dbus/org.perfectsense.Sense1.conf',
-  install_dir: get_option('prefix') / 'share' / 'dbus-1' / 'system.d',
-)
-
-install_data(
-  'packaging/dbus/org.perfectsense.Sense1.xml',
-  install_dir: get_option('prefix') / 'share' / 'dbus-1' / 'interfaces',
-)
-
 install_man('man/perfectsense.1', 'man/perfectsensed.8')
 
 install_data(
@@ -92,5 +82,5 @@ summary({
   'cli': cli_exe.name(),
   'daemon': daemon_exe.name(),
   'lib': libperfectsense.name(),
-  'note': 'hwmon sensors + daily-driver gaps',
+  'note': 'sysfs + daemon (no D-Bus)',
 }, section: 'PerfectSense')

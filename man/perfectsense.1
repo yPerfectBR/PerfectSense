@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.17" "User Commands"
+.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.18" "User Commands"
 .SH NAME
 perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
 .SH SYNOPSIS
@@ -75,20 +75,15 @@ Enable/disable FanAggressor offset mode or edit config.
 .B set
 and
 .BR on / off
-persist the conf and ask
+persist the conf and send
+.B SIGHUP
+to
 .B perfectsensed
-to reload via D\-Bus
-.BR FanAggressorReload
-(keys:
-.BR engage_c ,
-.BR hysteresis_c ,
-.BR hold_sec ,
-.BR interval_ms ,
-.BR offset_cpu ,
-.BR offset_gpu ,
-.BR floor_cpu ,
-.BR floor_gpu ,
-.BR enabled ).
+so the timer reloads
+.RB ( engage_c ,
+offsets, floors, …). Persists under
+.I /etc/perfectsense/
+when writable.
 .TP
 .B battery get|on|off
 80% charge limiter.
@@ -155,7 +150,6 @@ Persisted FanAggressor config (when writable).
 .I /run/perfectsense/fan\-aggressor.conf
 Runtime override (takes precedence).
 .SH SEE ALSO
-.BR perfectsensed (8),
-.BR busctl (1)
+.BR perfectsensed (8)
 .SH BUGS
 Report issues at https://github.com/yPerfectBR/PerfectSense

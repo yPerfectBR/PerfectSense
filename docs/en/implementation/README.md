@@ -10,7 +10,7 @@
 | Kernel module | API **6** + **hwmon**; LCD/kb-timeout decode fixed for PHN16-72 |
 | libperfectsense | temps/RPM, RGB effect, event inject, FA etc+run |
 | CLI | `temps`, `rgb effect`, `event inject`, `fan aggressor set` |
-| perfectsensed | Hotkey + AC demote + FA reload; D-Bus ≈ CLI/sysfs surface |
+| perfectsensed | Hotkey + AC demote + FA timer (**no D-Bus**; SIGHUP reloads FA) |
 | Packaging | Cutover: blacklist + modules-load + enable units + Conflicts |
 
 ## Sensors (no nekro required)
@@ -47,15 +47,14 @@ perfectsense fan aggressor status|on|off|set engage_c=88 offset_cpu=15 …
 perfectsense fan aggressor reload   # re-read conf in perfectsensed
 ```
 
-`set` / `on` / `off` persist conf and call D-Bus `FanAggressorReload` so the
+`set` / `on` / `off` persist conf and send **SIGHUP** to `perfectsensed` so the
 daemon picks up engage/offset/interval without restart.
 
-## D-Bus (`org.perfectsense.Sense1`)
+## Control plane
 
-Beyond thermal/fans/CPU/FA, the daemon exposes read/write parity for misc
-sysfs attrs (`BatteryLimiter`, `LcdOverride`, `BacklightTimeout`, …), sensors
-(`TempCpu`/`TempGpu`, `FanRpm*`), `NvidiaPowerd`, plus methods
-`SetRgbEffect`, `LightingReset`, and `InjectEvent`.
+**Sysfs + CLI only.** There is no `org.perfectsense.Sense1` D-Bus interface.
+UIs should call `/usr/bin/perfectsense` (root) or write sysfs; for keys use
+udev/`PerfectSense Hotkeys`.
 
 ## Cutover notes
 

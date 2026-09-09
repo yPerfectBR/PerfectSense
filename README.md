@@ -4,8 +4,9 @@ Clean, lightweight Linux support for Acer Predator Sense–class hardware on the
 **Predator Helios Neo 16 (PHN16-72-74VX)**.
 
 PerfectSense is a **kernel module** plus a small **userspace stack** (library,
-CLI, optional system daemon). There is **no GUI**. Desktop shells and scripts
-integrate through sysfs, the CLI, and D-Bus events.
+CLI, optional system daemon). There is **no GUI** and **no D-Bus API**. Desktop
+shells and scripts integrate through **sysfs** and the CLI (typically as root).
+For live keys, watch udev/`PerfectSense Hotkeys` input.
 
 **License:** [AGPL-3.0-or-later](LICENSE) (userspace/docs). Kernel module tree
 `kmod/` is **GPL-2.0-or-later** — see
@@ -27,7 +28,7 @@ integrate through sysfs, the CLI, and D-Bus events.
 
 ```
 perfectsense (CLI) ──► libperfectsense ──► sysfs
-perfectsensed (system) ──► D-Bus signals ──► UIs / scripts
+perfectsensed (system) ──► hotkeys / AC policy / FanAggressor timer
          │
          ▼
   perfectsense.ko ──► ACPI WMI ──► Embedded Controller
@@ -38,7 +39,7 @@ perfectsensed (system) ──► D-Bus signals ──► UIs / scripts
 | `perfectsense.ko` | WMI/EC access; sysfs; `platform_profile`; input/uevents |
 | `libperfectsense` | Typed helpers over sysfs (C API) |
 | `perfectsense` | CLI (human text + `--json`) |
-| `perfectsensed` | System daemon: D-Bus + optional FanAggressor timer |
+| `perfectsensed` | System daemon: hotkeys, AC demote, optional FanAggressor |
 
 Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 `acer-wmi` / conflicting out-of-tree modules when using PerfectSense.

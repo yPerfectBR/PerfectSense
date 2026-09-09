@@ -5,13 +5,17 @@
 1. **Kernel owns firmware.** All Acer gaming WMI calls live in `perfectsense.ko`.
    Userspace never invokes WMI directly.
 2. **Sysfs is the ABI.** Stable attribute names and formats; `api_version` bumps
-   when breaking changes are intentional.
+   when breaking changes are intentional. Apps/scripts talk to sysfs (or the CLI
+   over it)—there is **no D-Bus control plane**.
 3. **Idle by default.** No temperature polling unless FanAggressor (offset mode)
    is explicitly enabled.
 4. **Events over busy-wait.** Firmware/key events surface as kernel uevent/input;
-   `perfectsensed` translates them to D-Bus signals for desktop consumers.
-5. **Root daemon, least surprise.** `perfectsensed` runs as a **system** service
-   so sysfs writes and future privileged ops do not fight session permissions.
+   `perfectsensed` applies policy (mode cycle, AC demote, turbo) and logs; UIs
+   that need live events watch udev or the `PerfectSense Hotkeys` input device.
+5. **Root daemon for policy only.** `perfectsensed` runs as a **system** service
+   for hotkeys/AC/FanAggressor—not as an RPC bus. Privileged get/set from users
+   go through sysfs with root (or a future group), typically via
+   `/usr/bin/perfectsense`.
 6. **PHN16-72-74VX first.** Probe is DMI-gated; structure allows later quirks
    without scattering `#ifdef` soup.
 
@@ -28,21 +32,21 @@ flowchart TB
     CLI[perfectsense CLI]
     Lib[libperfectsense]
     D[perfectsensed]
-    Bus[D-Bus system bus]
   end
   subgraph kernel [Kernel]
     Sysfs[sysfs perfect_sense]
     PP[platform_profile]
     Mod[perfectsense.ko]
+    Input[input PerfectSense Hotkeys]
   end
   EC[Embedded Controller]
 
   CLI --> Lib
   Lib --> Sysfs
   D --> Sysfs
-  D --> Bus
   Sysfs --> Mod
   PP --> Mod
+  Mod --> Input
   Mod -->|"ACPI WMI methods"| EC
 ```
 
@@ -55,8 +59,7 @@ flowchart TB
 | Platform profile | standard `/sys/firmware/acpi/platform_profile` | Desktop-wide convention (`power-profiles-daemon`, etc.) |
 | CLI | `perfectsense` | Same as product |
 | Daemon | `perfectsensed` | Conventional `*d` suffix for system services |
-| Shared library | `libperfectsense` | Stable C API for future UIs without shelling out |
-| D-Bus name | `org.perfectsense.Sense1` | Product-centric reverse-DNS; `1` = major API generation |
+| Shared library | `libperfectsense` | Stable C API for UIs without shelling out |
 
 We intentionally **do not** reuse `predator_sense` as the primary sysfs name:
 this project is a clean replacement stack, not a drop-in path clone for older
@@ -75,20 +78,21 @@ Coexistence is fragile (duplicate platform devices, racing method calls) and is
 
 ## Event model
 
-1. **Kernel:** turbo / mode-key style notifications become uevents and/or input
-   events (no D-Bus in kernel space).
-2. **`perfectsensed`:** subscribes, debounces if needed, emits D-Bus signals
-   such as profile changes or turbo-key presses.
+1. **Kernel:** turbo / mode-key / AC notifications become uevents and input
+   events.
+2. **`perfectsensed`:** subscribes via sd-device, debounces, applies policy
+   (profile cycle, turbo latch, AC demote/restore).
 3. **One-shot CLI:** reads/writes sysfs via `libperfectsense` without requiring
-   the daemon for simple get/set.
+   the daemon for simple get/set. FanAggressor `set`/`on`/`off` save config and
+   send **SIGHUP** so the daemon reloads the timer.
 
 ## FanAggressor (offset mode)
 
 When disabled (default): firmware/EC auto curve only; daemon does not run a
 thermal timer.
 
-When enabled: `perfectsensed` uses `timerfd`/`epoll` to apply an additive offset
-on top of captured native duty — engage/disengage thresholds with hysteresis.
+When enabled: `perfectsensed` uses `timerfd` to apply an additive offset on top
+of captured native duty — engage/disengage thresholds with hysteresis.
 Disabling offset cancels the timer and returns fans to auto.
 
 ## CPU power controls
@@ -96,19 +100,10 @@ Disabling offset cancels the timer and returns fans to auto.
 Governor, EPP, turbo, RAPL PL1/PL2, and max frequency are **userspace**
 concerns (sysfs `cpufreq` / `powercap`), coordinated by the library/daemon.
 They are separate from WMI thermal profile but can be composed into named
-power presets later.
-
-## Documentation split
-
-| Tree | Meaning |
-|------|---------|
-| `docs/*/roadmap/` | Plan and phases — may describe work **not yet done** |
-| `docs/*/implementation/` | Only behavior that **exists in the tree today** |
-| `docs/*/reverse-engineering/` | Firmware methodology and findings |
-| `docs/*/architecture/` | Enduring design (this document) |
+power presets.
 
 ## Packaging
 
-- Userspace: **Meson**
-- Kernel: **DKMS**
 - Distro focus: **Arch Linux** (`packaging/arch/` PKGBUILD)
+- DKMS for `perfectsense.ko`
+- `perfectsensed.service` + `.path` enabled on install

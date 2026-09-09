@@ -11,7 +11,7 @@
 | libperfectsense | temps/RPM, RGB effect, event inject, FA etc+run |
 | CLI | `temps`, `rgb effect`, `event inject`, `fan aggressor set` |
 | perfectsensed | Hotkey (+300 ms debounce), FA timer |
-| Packaging | blacklist + `modules-load.d`, path unit, PKGBUILD |
+| Packaging | Cutover: blacklist + modules-load + enable units + Conflicts |
 
 ## Sensors (no nekro required)
 
@@ -46,11 +46,17 @@ perfectsense fan aggressor status|on|off|set engage_c=88 offset_cpu=15 …
 
 ## Cutover notes
 
-Packaging installs:
+See **[cutover.md](../cutover.md)** for the full nekro → PerfectSense switch.
+
+Packaging installs and enables:
 
 - `modprobe.d`: blacklist `acer-wmi` + `nekro_sense`
 - `modules-load.d`: load `perfectsense`
-- `perfectsensed.service` + `.path`
+- `perfectsensed.service` + `.path` (**enabled** on package install)
+- `Conflicts`/`Replaces` vs `nekro-sense` / `linuwu-sense`
+
+Dev helpers: `scripts/cutover-to-perfectsense.sh`, `scripts/rollback-to-nekro.sh`
+(also installed as `perfectsense-cutover` / `perfectsense-rollback`).
 
 ## IMPORTANT: GPU performance (PHN16-72)
 

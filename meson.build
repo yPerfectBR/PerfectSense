@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.13',
+  version: '0.0.14',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [

@@ -45,9 +45,9 @@ Exclusive ownership of the Acer gaming WMI path: **blacklist** in-tree
 
 ## Status
 
-**Phase 10 in tree:** WMI turbo/mode/AC events → input + uevent; `perfectsensed`
-emits D-Bus `Hotkey`; man pages; installable Arch PKGBUILD. See
-[implementation status](docs/en/implementation/README.md).
+**Phase 10 + cutover packaging in tree.** See
+[implementation status](docs/en/implementation/README.md) and
+[cutover guide](docs/en/cutover.md).
 
 Further work is tracked in the [roadmap](docs/en/roadmap/roadmap.md).
 Portuguese mirrors live under [`docs/pt-BR/`](docs/pt-BR/).
@@ -76,8 +76,10 @@ meson setup build && meson compile -C build
 make -C kmod
 # or: make -C kmod LLVM=1
 
-# Local Arch package from a checkout:
+# Local Arch package (cutover from nekro):
 cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
+# or live from a built tree:
+sudo ./scripts/cutover-to-perfectsense.sh
 ```
 
 ## CLI sketch (target)

@@ -1,16 +1,61 @@
 post_install() {
-  dkms install "perfectsense/${1%%-*}" >/dev/null 2>&1 || true
+  local ver="${1%%-*}"
+
+  echo '==> PerfectSense: installing DKMS module…'
+  if ! dkms install "perfectsense/${ver}"; then
+    echo '==> WARNING: dkms install failed — install matching linux-headers and retry:'
+    echo "    sudo dkms install perfectsense/${ver}"
+  fi
+
   systemctl daemon-reload >/dev/null 2>&1 || true
-  echo 'Unload conflicting Acer gaming WMI modules before loading perfectsense.'
-  echo 'Then: modprobe perfectsense && systemctl enable --now perfectsensed'
+
+  # Drop rival Acer gaming WMI writers if loaded right now.
+  if lsmod | grep -q '^nekro_sense'; then
+    echo '==> Unloading nekro_sense (conflicts with PerfectSense WMI)…'
+    modprobe -r nekro_sense 2>/dev/null || rmmod nekro_sense 2>/dev/null || \
+      echo '==> WARNING: could not unload nekro_sense; reboot after install'
+  fi
+  if lsmod | grep -q '^acer_wmi\|^acer-wmi'; then
+    modprobe -r acer-wmi 2>/dev/null || true
+  fi
+
+  echo '==> Loading perfectsense…'
+  if modprobe perfectsense 2>/dev/null; then
+    echo '==> perfectsense.ko loaded'
+  else
+    echo '==> WARNING: modprobe perfectsense failed (DKMS/headers?). Reboot after fixing.'
+  fi
+
+  echo '==> Enabling perfectsensed.path + perfectsensed.service…'
+  systemctl enable perfectsensed.path perfectsensed.service >/dev/null 2>&1 || true
+  systemctl start perfectsensed.path >/dev/null 2>&1 || true
+  if [[ -e /sys/devices/platform/perfectsense/perfect_sense/api_version ]]; then
+    systemctl restart perfectsensed.service >/dev/null 2>&1 || \
+      systemctl start perfectsensed.service >/dev/null 2>&1 || true
+  fi
+
+  echo
+  echo 'PerfectSense cutover notes:'
+  echo '  • acer-wmi and nekro_sense are blacklisted (modprobe.d)'
+  echo '  • perfectsense loads at boot (modules-load.d)'
+  echo '  • For ~140W GPU boost: enable nvidia-powerd (see README)'
+  echo '  • Check: perfectsense status && systemctl status perfectsensed'
+  echo '  • Rollback: uninstall this package, remove blacklist, modprobe nekro_sense'
 }
 
 post_upgrade() {
   post_install "$1"
 }
 
+pre_remove() {
+  systemctl disable --now perfectsensed.service perfectsensed.path >/dev/null 2>&1 || true
+  modprobe -r perfectsense 2>/dev/null || rmmod perfectsense 2>/dev/null || true
+}
+
 post_remove() {
   local ver="${1%%-*}"
   dkms remove "perfectsense/${ver}" --all >/dev/null 2>&1 || true
   systemctl daemon-reload >/dev/null 2>&1 || true
+  echo 'PerfectSense removed. Rival modules are no longer blacklisted by this package.'
+  echo 'To return to nekro: sudo modprobe nekro_sense'
 }

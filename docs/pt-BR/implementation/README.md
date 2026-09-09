@@ -9,7 +9,7 @@
 | Kernel | API **6** + hwmon `perfectsense` (temp/RPM) |
 | CLI / lib | `temps`, `rgb effect`, `event inject`, FA set |
 | perfectsensed | Hotkey + debounce; FanAggressor |
-| Pacote | blacklist + modules-load + path unit |
+| Pacote Arch | Cutover (blacklist, enable, Conflicts) |
 
 ## Sensores
 
@@ -25,7 +25,13 @@ perfectsense fan get   # inclui rpm
 `event inject` / teclas físicas → D-Bus `Hotkey`. Mode cicla (salta rejeitados);
 turbo só em AC (toggle).
 
-## GPU (nvidia-powerd)
+## Pacote Arch
+
+Cutover completo: [cutover.md](../cutover.md).
+
+```text
+cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
+```
 
 Como no nekro: `nvidia-open` + `nvidia-powerd` para ~80 W→~140 W.
 

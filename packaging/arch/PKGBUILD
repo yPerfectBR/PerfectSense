@@ -4,9 +4,12 @@
 # Build from a checkout:
 #   cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
 # Or set PERFECTSENSE_SRC to the repository root.
+#
+# Cutover: this package blacklists nekro_sense/acer-wmi, loads perfectsense at
+# boot, and enables perfectsensed. See docs/*/cutover.md.
 
 pkgname=perfectsense
-pkgver=0.0.13
+pkgver=0.0.14
 pkgrel=1
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
@@ -14,7 +17,14 @@ url='https://github.com/yPerfectBR/PerfectSense'
 license=('AGPL-3.0-or-later' 'GPL-2.0-or-later')
 depends=('dkms' 'systemd-libs')
 makedepends=('meson' 'ninja' 'systemd')
-optdepends=('linux-headers: build perfectsense.ko via DKMS')
+optdepends=(
+  'linux-headers: build perfectsense.ko via DKMS'
+  'nvidia-open: recommended NVIDIA driver for Helios'
+  'nvidia-utils: nvidia-powerd Dynamic Boost (~80W→~140W)'
+)
+# Avoid two writers on the same Acer gaming WMI path.
+conflicts=('nekro-sense' 'linuwu-sense')
+replaces=('nekro-sense' 'linuwu-sense')
 install=perfectsense.install
 source=()
 sha256sums=()
@@ -60,6 +70,11 @@ package() {
     "$pkgdir/usr/lib/modprobe.d/perfectsense.conf"
   install -Dm644 "$srcdir/$pkgname-$pkgver/packaging/modules-load.d/perfectsense.conf" \
     "$pkgdir/usr/lib/modules-load.d/perfectsense.conf"
+
+  install -Dm755 "$srcdir/$pkgname-$pkgver/scripts/cutover-to-perfectsense.sh" \
+    "$pkgdir/usr/bin/perfectsense-cutover"
+  install -Dm755 "$srcdir/$pkgname-$pkgver/scripts/rollback-to-nekro.sh" \
+    "$pkgdir/usr/bin/perfectsense-rollback"
 
   install -Dm644 "$srcdir/$pkgname-$pkgver/LICENSE" \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

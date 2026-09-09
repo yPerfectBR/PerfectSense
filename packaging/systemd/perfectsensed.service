@@ -1,0 +1,18 @@
+[Unit]
+Description=PerfectSense hardware daemon (org.perfectsense.Sense1)
+Documentation=https://github.com/yPerfectBR/PerfectSense
+After=systemd-udevd.service
+# Soft dependency: start when the module sysfs appears; fail cleanly otherwise.
+ConditionPathExists=/sys/devices/platform/perfectsense/perfect_sense/api_version
+
+[Service]
+Type=notify
+BusName=org.perfectsense.Sense1
+ExecStart=/usr/bin/perfectsensed
+Restart=on-failure
+RestartSec=2
+# Root: sysfs writes for profile/fans/RGB
+User=root
+
+[Install]
+WantedBy=multi-user.target

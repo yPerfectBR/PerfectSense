@@ -135,23 +135,31 @@ int ps_cpu_power_for_profile(const char *thermal_name);
 int ps_temps_read(int *cpu_c, int *gpu_c);
 int ps_fan_rpm_get(int *cpu_rpm, int *gpu_rpm);
 
-/* Custom fan curve (temp→duty). Timer in perfectsensed when enabled. */
-#define PS_FAN_CURVE_MAX_POINTS 16
-struct ps_fan_curve_point {
-	int temp_c;
-	unsigned cpu_pct;
-	unsigned gpu_pct;
+/* Custom fan curve: per-axis bands (temp_lo, temp_hi, duty%).
+ * Timer in perfectsensed when enabled.
+ * Example band list: (90,100,95),(85,89,90) → 90–100 °C @ 95%, 85–89 °C @ 90%.
+ */
+#define PS_FAN_CURVE_MAX_BANDS 16
+struct ps_fan_curve_band {
+	int temp_lo;
+	int temp_hi;
+	unsigned duty_pct;
+};
+struct ps_fan_curve_axis {
+	int n_bands;
+	struct ps_fan_curve_band bands[PS_FAN_CURVE_MAX_BANDS];
 };
 struct ps_fan_curve_config {
 	int enabled;
 	int interval_ms;
-	int n_points;
-	struct ps_fan_curve_point points[PS_FAN_CURVE_MAX_POINTS];
+	struct ps_fan_curve_axis cpu; /* duty from CPU temp */
+	struct ps_fan_curve_axis gpu; /* duty from GPU temp */
 };
 void ps_fan_curve_defaults(struct ps_fan_curve_config *cfg);
 int ps_fan_curve_config_load(struct ps_fan_curve_config *cfg);
 int ps_fan_curve_config_save(const struct ps_fan_curve_config *cfg);
-int ps_fan_curve_parse_points(const char *csv, struct ps_fan_curve_config *cfg);
+/* Parse "(90,100,95),(85,89,90)" or "90:100:95,85:89:90" into an axis. */
+int ps_fan_curve_parse_bands(const char *text, struct ps_fan_curve_axis *axis);
 void ps_fan_curve_eval(const struct ps_fan_curve_config *cfg, int cpu_c,
 		       int gpu_c, unsigned *out_cpu, unsigned *out_gpu);
 

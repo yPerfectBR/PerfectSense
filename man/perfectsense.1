@@ -1,5 +1,5 @@
 .\" SPDX-License-Identifier: AGPL-3.0-or-later
-.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.24" "User Commands"
+.TH PERFECTSENSE 1 "2026-09-09" "PerfectSense 0.0.25" "User Commands"
 .SH NAME
 perfectsense \- one-shot CLI for Acer Predator PerfectSense sysfs
 .SH SYNOPSIS
@@ -87,15 +87,25 @@ in firmware-auto often echoes the last custom command, not live PWM — prefer
 and temps for observation.
 .TP
 .BI "fan curve on" \fR "|" " off" \fR "|" " status" \fR "|" " reload" \fR "|" " set " key=val…
-Custom userspace fan curve (temp→duty), applied by
+Custom userspace fan curve, applied by
 .B perfectsensed
 when enabled.
+Each axis (CPU / GPU) has bands
+.BI ( temp_lo , temp_hi , duty% )
+meaning: while that sensor is between
+.I temp_lo
+and
+.I temp_hi ,
+that fan runs at
+.IR duty% .
+Gaps between bands are linearly interpolated; below the lowest band duty is 0;
+above the highest band the last duty is held.
 .B set
 keys:
-.BI interval_ms= N ,
-.BI points= t:cpu:gpu,t:cpu:gpu,...
-(at least two points). CPU duty tracks CPU temp; GPU duty tracks GPU temp
-(linear interpolation between points).
+.BI cpu= "'(90,100,95),(85,89,90)'" ,
+.BI gpu= "…" ,
+.BI interval_ms= N .
+Quote values that contain parentheses/commas.
 Manual
 .B fan set
 pauses the curve until targets return to auto / curve-owned values.

@@ -94,10 +94,11 @@ Three layers:
 
 1. **Firmware auto** (`fan auto` / target `0,0`) — EC owns the curve.
 2. **Manual** (`fan set cpu gpu`) — one-shot duty; pauses an active userspace curve.
-3. **Custom curve** (`fan curve …`, default **off**) — `perfectsensed` polls temps
-   on `timerfd` and applies interpolated duties from configured points
-   (`temp:cpu%:gpu%`). CPU duty follows CPU temp; GPU duty follows GPU temp.
-   Re-applies every tick so thermal profile changes cannot silently steal control.
+3. **Custom curve** (`fan curve …`, default **off**) — per-axis bands
+   `(temp_lo,temp_hi,duty%)`. Example: CPU `(90,100,95),(85,89,90)` means
+   90–100 °C → 95% and 85–89 °C → 90%. CPU bands use CPU temp; GPU bands use
+   GPU temp. `perfectsensed` applies duties on `timerfd` and re-applies every
+   tick so thermal profile changes cannot silently steal control.
 
 On PHN16-72, `fan_duty` while in firmware-auto often echoes the last custom
 command rather than live PWM — use RPM/temps to observe auto behaviour.

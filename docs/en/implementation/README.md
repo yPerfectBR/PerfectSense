@@ -43,14 +43,13 @@ Default **off**. Config: `/etc/perfectsense/fan-curve.conf` (persist) +
 `/run/perfectsense/…` (override).
 
 ```text
-perfectsense fan curve status|on|off|set points=40:25:20,75:50:45,95:100:90 …
-perfectsense fan curve set interval_ms=1500
-perfectsense fan curve reload   # re-read conf in perfectsensed
+perfectsense fan curve status|on|off|reload
+perfectsense fan curve set cpu='(90,100,95),(85,89,90)' gpu='(90,100,90),(80,89,70)' interval_ms=1000
 ```
 
+Band = `(temp_lo,temp_hi,duty%)`. CPU and GPU axes are independent.
 `set` / `on` / `off` persist conf and send **SIGHUP** to `perfectsensed`.
-Points are `temp:cpu%:gpu%` with linear interpolation (CPU duty←CPU temp,
-GPU duty←GPU temp). Manual `fan set` pauses the curve until auto/curve resumes.
+Manual `fan set` pauses the curve until auto/curve resumes.
 
 ## Control plane
 

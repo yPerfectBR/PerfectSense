@@ -33,9 +33,11 @@ Default **off**. Pontos `temp:cpu%:gpu%`; o daemon aplica quando ligado.
 
 ```text
 perfectsense fan curve status
-perfectsense fan curve set points=40:25:20,75:50:45,95:100:90
+perfectsense fan curve set cpu='(90,100,95),(85,89,90)' gpu='(90,100,90),(80,89,70)' interval_ms=1000
 perfectsense fan curve on
 ```
+
+Faixa = `(temp_min, temp_max, duty%)`. CPU e GPU são independentes.
 
 Também: `fan get|set|auto` (nativo EC / manual).
 

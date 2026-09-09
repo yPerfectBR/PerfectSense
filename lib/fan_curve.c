@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: AGPL-3.0-or-later */
 /*
- * PerfectSense — custom fan curve (temp → duty points).
- * Timer / apply lives in perfectsensed; this file is shared with the CLI.
+ * PerfectSense — custom fan curve (per-axis temp bands → duty %).
  *
- * Load: defaults → /etc/perfectsense/fan-curve.conf → /run/… (override).
- * Save: /run always; /etc when writable.
+ * Band: (temp_lo, temp_hi, duty%) e.g. (90,100,95) → while temp in 90–100 °C,
+ * that fan runs at 95%. CPU and GPU axes are independent.
+ *
+ * Timer / apply lives in perfectsensed.
  */
 
 #define _POSIX_C_SOURCE 200809L
 
 #include "perfectsense.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,6 +23,23 @@
 #define PS_FC_ETC_PATH "/etc/perfectsense/fan-curve.conf"
 #define PS_FC_RUN_PATH "/run/perfectsense/fan-curve.conf"
 
+static void axis_defaults(struct ps_fan_curve_axis *ax, int cpu_like)
+{
+	memset(ax, 0, sizeof(*ax));
+	ax->n_bands = 4;
+	if (cpu_like) {
+		ax->bands[0] = (struct ps_fan_curve_band){ 40, 59, 30 };
+		ax->bands[1] = (struct ps_fan_curve_band){ 60, 74, 45 };
+		ax->bands[2] = (struct ps_fan_curve_band){ 75, 89, 70 };
+		ax->bands[3] = (struct ps_fan_curve_band){ 90, 105, 100 };
+	} else {
+		ax->bands[0] = (struct ps_fan_curve_band){ 40, 59, 25 };
+		ax->bands[1] = (struct ps_fan_curve_band){ 60, 74, 40 };
+		ax->bands[2] = (struct ps_fan_curve_band){ 75, 89, 65 };
+		ax->bands[3] = (struct ps_fan_curve_band){ 90, 105, 95 };
+	}
+}
+
 void ps_fan_curve_defaults(struct ps_fan_curve_config *cfg)
 {
 	if (!cfg)
@@ -28,12 +47,8 @@ void ps_fan_curve_defaults(struct ps_fan_curve_config *cfg)
 	memset(cfg, 0, sizeof(*cfg));
 	cfg->enabled = 0;
 	cfg->interval_ms = 2000;
-	cfg->n_points = 5;
-	cfg->points[0] = (struct ps_fan_curve_point){ 40, 25, 20 };
-	cfg->points[1] = (struct ps_fan_curve_point){ 60, 35, 30 };
-	cfg->points[2] = (struct ps_fan_curve_point){ 75, 50, 45 };
-	cfg->points[3] = (struct ps_fan_curve_point){ 85, 70, 65 };
-	cfg->points[4] = (struct ps_fan_curve_point){ 95, 100, 90 };
+	axis_defaults(&cfg->cpu, 1);
+	axis_defaults(&cfg->gpu, 0);
 }
 
 static int ensure_dir(const char *path, mode_t mode)
@@ -47,43 +62,130 @@ static int ensure_dir(const char *path, mode_t mode)
 	return 0;
 }
 
-static int cmp_points(const void *a, const void *b)
+static int cmp_bands(const void *a, const void *b)
 {
-	const struct ps_fan_curve_point *pa = a;
-	const struct ps_fan_curve_point *pb = b;
+	const struct ps_fan_curve_band *ba = a;
+	const struct ps_fan_curve_band *bb = b;
 
-	return pa->temp_c - pb->temp_c;
+	if (ba->temp_lo != bb->temp_lo)
+		return ba->temp_lo - bb->temp_lo;
+	return ba->temp_hi - bb->temp_hi;
+}
+
+static void clamp_axis(struct ps_fan_curve_axis *ax)
+{
+	int i;
+
+	if (ax->n_bands < 1)
+		ax->n_bands = 1;
+	if (ax->n_bands > PS_FAN_CURVE_MAX_BANDS)
+		ax->n_bands = PS_FAN_CURVE_MAX_BANDS;
+	for (i = 0; i < ax->n_bands; i++) {
+		struct ps_fan_curve_band *b = &ax->bands[i];
+
+		if (b->temp_lo < 0)
+			b->temp_lo = 0;
+		if (b->temp_hi > 120)
+			b->temp_hi = 120;
+		if (b->temp_hi < b->temp_lo) {
+			int t = b->temp_lo;
+
+			b->temp_lo = b->temp_hi;
+			b->temp_hi = t;
+		}
+		if (b->duty_pct > 100)
+			b->duty_pct = 100;
+	}
+	qsort(ax->bands, (size_t)ax->n_bands, sizeof(ax->bands[0]), cmp_bands);
 }
 
 static void clamp_cfg(struct ps_fan_curve_config *cfg)
 {
-	int i;
-
 	if (cfg->interval_ms < 500)
 		cfg->interval_ms = 500;
-	if (cfg->n_points < 2)
-		cfg->n_points = 2;
-	if (cfg->n_points > PS_FAN_CURVE_MAX_POINTS)
-		cfg->n_points = PS_FAN_CURVE_MAX_POINTS;
-	for (i = 0; i < cfg->n_points; i++) {
-		if (cfg->points[i].temp_c < 0)
-			cfg->points[i].temp_c = 0;
-		if (cfg->points[i].temp_c > 110)
-			cfg->points[i].temp_c = 110;
-		if (cfg->points[i].cpu_pct > 100)
-			cfg->points[i].cpu_pct = 100;
-		if (cfg->points[i].gpu_pct > 100)
-			cfg->points[i].gpu_pct = 100;
+	clamp_axis(&cfg->cpu);
+	clamp_axis(&cfg->gpu);
+}
+
+static int parse_one_band(const char *s, struct ps_fan_curve_band *out)
+{
+	int lo, hi;
+	unsigned duty;
+	const char *p = s;
+
+	while (*p && isspace((unsigned char)*p))
+		p++;
+	if (*p == '(')
+		p++;
+	if (sscanf(p, "%d %*[,:] %d %*[,:] %u", &lo, &hi, &duty) != 3 &&
+	    sscanf(p, "%d,%d,%u", &lo, &hi, &duty) != 3 &&
+	    sscanf(p, "%d:%d:%u", &lo, &hi, &duty) != 3)
+		return -EINVAL;
+	out->temp_lo = lo;
+	out->temp_hi = hi;
+	out->duty_pct = duty;
+	return 0;
+}
+
+int ps_fan_curve_parse_bands(const char *text, struct ps_fan_curve_axis *axis)
+{
+	char buf[512];
+	char *p;
+	int n = 0;
+
+	if (!text || !axis)
+		return -EINVAL;
+	snprintf(buf, sizeof(buf), "%s", text);
+	p = buf;
+	while (*p && n < PS_FAN_CURVE_MAX_BANDS) {
+		struct ps_fan_curve_band b;
+		char *start;
+		char *end;
+		char saved;
+		int lo, hi, eaten = 0;
+		unsigned d;
+
+		while (*p && (isspace((unsigned char)*p) || *p == ',' ||
+			      *p == ')'))
+			p++;
+		if (!*p)
+			break;
+		start = p;
+		if (*start == '(') {
+			end = strchr(start, ')');
+			if (!end)
+				return -EINVAL;
+			end++;
+		} else if (sscanf(start, "%d%*[,:]%d%*[,:]%u%n", &lo, &hi, &d,
+				  &eaten) == 3) {
+			end = start + eaten;
+		} else {
+			return -EINVAL;
+		}
+		saved = *end;
+		*end = '\0';
+		if (parse_one_band(start, &b) != 0) {
+			*end = saved;
+			return -EINVAL;
+		}
+		*end = saved;
+		axis->bands[n++] = b;
+		p = end;
 	}
-	qsort(cfg->points, (size_t)cfg->n_points, sizeof(cfg->points[0]),
-	      cmp_points);
+	if (n < 1)
+		return -EINVAL;
+	axis->n_bands = n;
+	clamp_axis(axis);
+	return 0;
 }
 
 static int load_file(const char *path, struct ps_fan_curve_config *cfg)
 {
 	FILE *f;
-	char line[192];
-	int n = 0;
+	char line[256];
+	int n_cpu = 0, n_gpu = 0;
+	struct ps_fan_curve_band cpu_tmp[PS_FAN_CURVE_MAX_BANDS];
+	struct ps_fan_curve_band gpu_tmp[PS_FAN_CURVE_MAX_BANDS];
 
 	f = fopen(path, "r");
 	if (!f)
@@ -91,8 +193,7 @@ static int load_file(const char *path, struct ps_fan_curve_config *cfg)
 
 	while (fgets(line, sizeof(line), f)) {
 		char *eq, *nl;
-		int t;
-		unsigned c, g;
+		struct ps_fan_curve_band b;
 
 		nl = strchr(line, '\n');
 		if (nl)
@@ -108,19 +209,35 @@ static int load_file(const char *path, struct ps_fan_curve_config *cfg)
 			cfg->enabled = atoi(eq) ? 1 : 0;
 		else if (!strcmp(line, "interval_ms"))
 			cfg->interval_ms = atoi(eq);
-		else if (!strcmp(line, "point") &&
-			 n < PS_FAN_CURVE_MAX_POINTS) {
-			if (sscanf(eq, "%d:%u:%u", &t, &c, &g) == 3) {
-				cfg->points[n].temp_c = t;
-				cfg->points[n].cpu_pct = c;
-				cfg->points[n].gpu_pct = g;
-				n++;
+		else if (!strcmp(line, "cpu_band") &&
+			 n_cpu < PS_FAN_CURVE_MAX_BANDS) {
+			if (parse_one_band(eq, &b) == 0)
+				cpu_tmp[n_cpu++] = b;
+		} else if (!strcmp(line, "gpu_band") &&
+			   n_gpu < PS_FAN_CURVE_MAX_BANDS) {
+			if (parse_one_band(eq, &b) == 0)
+				gpu_tmp[n_gpu++] = b;
+		} else if (!strcmp(line, "cpu") || !strcmp(line, "gpu")) {
+			struct ps_fan_curve_axis ax;
+			int err = ps_fan_curve_parse_bands(eq, &ax);
+
+			if (err == 0) {
+				if (!strcmp(line, "cpu"))
+					cfg->cpu = ax;
+				else
+					cfg->gpu = ax;
 			}
 		}
 	}
 	fclose(f);
-	if (n >= 2)
-		cfg->n_points = n;
+	if (n_cpu >= 1) {
+		memcpy(cfg->cpu.bands, cpu_tmp, sizeof(*cpu_tmp) * (size_t)n_cpu);
+		cfg->cpu.n_bands = n_cpu;
+	}
+	if (n_gpu >= 1) {
+		memcpy(cfg->gpu.bands, gpu_tmp, sizeof(*gpu_tmp) * (size_t)n_gpu);
+		cfg->gpu.n_bands = n_gpu;
+	}
 	return 0;
 }
 
@@ -151,9 +268,12 @@ static int write_file(const char *path, const struct ps_fan_curve_config *cfg)
 		return -errno;
 	fprintf(f, "enabled=%d\ninterval_ms=%d\n", cfg->enabled ? 1 : 0,
 		cfg->interval_ms);
-	for (i = 0; i < cfg->n_points; i++)
-		fprintf(f, "point=%d:%u:%u\n", cfg->points[i].temp_c,
-			cfg->points[i].cpu_pct, cfg->points[i].gpu_pct);
+	for (i = 0; i < cfg->cpu.n_bands; i++)
+		fprintf(f, "cpu_band=%d:%d:%u\n", cfg->cpu.bands[i].temp_lo,
+			cfg->cpu.bands[i].temp_hi, cfg->cpu.bands[i].duty_pct);
+	for (i = 0; i < cfg->gpu.n_bands; i++)
+		fprintf(f, "gpu_band=%d:%d:%u\n", cfg->gpu.bands[i].temp_lo,
+			cfg->gpu.bands[i].temp_hi, cfg->gpu.bands[i].duty_pct);
 	if (fclose(f) != 0)
 		return -errno;
 	return 0;
@@ -175,53 +295,19 @@ int ps_fan_curve_config_save(const struct ps_fan_curve_config *cfg)
 	err = write_file(PS_FC_RUN_PATH, &copy);
 	if (err)
 		return err;
-
 	if (ensure_dir("/etc/perfectsense", 0755) == 0)
 		(void)write_file(PS_FC_ETC_PATH, &copy);
 	return 0;
 }
 
-int ps_fan_curve_parse_points(const char *csv, struct ps_fan_curve_config *cfg)
-{
-	char buf[512];
-	char *save = NULL;
-	char *tok;
-	int n = 0;
-
-	if (!csv || !cfg)
-		return -EINVAL;
-	snprintf(buf, sizeof(buf), "%s", csv);
-	for (tok = strtok_r(buf, ",", &save); tok;
-	     tok = strtok_r(NULL, ",", &save)) {
-		int t;
-		unsigned c, g;
-
-		if (n >= PS_FAN_CURVE_MAX_POINTS)
-			return -EINVAL;
-		if (sscanf(tok, "%d:%u:%u", &t, &c, &g) != 3)
-			return -EINVAL;
-		cfg->points[n].temp_c = t;
-		cfg->points[n].cpu_pct = c;
-		cfg->points[n].gpu_pct = g;
-		n++;
-	}
-	if (n < 2)
-		return -EINVAL;
-	cfg->n_points = n;
-	clamp_cfg(cfg);
-	return 0;
-}
-
 static unsigned lerp_u(unsigned a, unsigned b, int t0, int t1, int t)
 {
-	int span, off;
+	int span = t1 - t0;
 	long v;
 
-	if (t1 <= t0)
+	if (span <= 0)
 		return b;
-	span = t1 - t0;
-	off = t - t0;
-	v = (long)a + ((long)b - (long)a) * off / span;
+	v = (long)a + ((long)b - (long)a) * (t - t0) / span;
 	if (v < 0)
 		v = 0;
 	if (v > 100)
@@ -229,33 +315,29 @@ static unsigned lerp_u(unsigned a, unsigned b, int t0, int t1, int t)
 	return (unsigned)v;
 }
 
-static unsigned eval_axis(const struct ps_fan_curve_config *cfg, int temp_c,
-			  int cpu_axis)
+static unsigned eval_axis(const struct ps_fan_curve_axis *ax, int temp_c)
 {
 	int i;
-	const struct ps_fan_curve_point *p0, *p1;
+	const struct ps_fan_curve_band *prev = NULL;
 
-	if (!cfg || cfg->n_points < 1)
+	if (!ax || ax->n_bands < 1)
 		return 0;
-	if (temp_c <= cfg->points[0].temp_c)
-		return cpu_axis ? cfg->points[0].cpu_pct
-				: cfg->points[0].gpu_pct;
-	if (temp_c >= cfg->points[cfg->n_points - 1].temp_c)
-		return cpu_axis ? cfg->points[cfg->n_points - 1].cpu_pct
-				: cfg->points[cfg->n_points - 1].gpu_pct;
 
-	for (i = 0; i < cfg->n_points - 1; i++) {
-		p0 = &cfg->points[i];
-		p1 = &cfg->points[i + 1];
-		if (temp_c >= p0->temp_c && temp_c <= p1->temp_c) {
-			unsigned a = cpu_axis ? p0->cpu_pct : p0->gpu_pct;
-			unsigned b = cpu_axis ? p1->cpu_pct : p1->gpu_pct;
+	if (temp_c < ax->bands[0].temp_lo)
+		return 0;
 
-			return lerp_u(a, b, p0->temp_c, p1->temp_c, temp_c);
-		}
+	for (i = 0; i < ax->n_bands; i++) {
+		const struct ps_fan_curve_band *b = &ax->bands[i];
+
+		if (temp_c >= b->temp_lo && temp_c <= b->temp_hi)
+			return b->duty_pct;
+		if (prev && temp_c > prev->temp_hi && temp_c < b->temp_lo)
+			return lerp_u(prev->duty_pct, b->duty_pct, prev->temp_hi,
+				      b->temp_lo, temp_c);
+		prev = b;
 	}
-	return cpu_axis ? cfg->points[cfg->n_points - 1].cpu_pct
-			: cfg->points[cfg->n_points - 1].gpu_pct;
+	/* above all bands */
+	return ax->bands[ax->n_bands - 1].duty_pct;
 }
 
 void ps_fan_curve_eval(const struct ps_fan_curve_config *cfg, int cpu_c,
@@ -263,6 +345,6 @@ void ps_fan_curve_eval(const struct ps_fan_curve_config *cfg, int cpu_c,
 {
 	if (!cfg || !out_cpu || !out_gpu)
 		return;
-	*out_cpu = eval_axis(cfg, cpu_c, 1);
-	*out_gpu = eval_axis(cfg, gpu_c, 0);
+	*out_cpu = eval_axis(&cfg->cpu, cpu_c);
+	*out_gpu = eval_axis(&cfg->gpu, gpu_c);
 }

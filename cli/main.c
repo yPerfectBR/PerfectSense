@@ -55,7 +55,8 @@ static void usage(FILE *out)
 		"            balanced-performance | performance\n"
 		"Aliases:    eco→low-power, turbo→performance, bp→balanced-performance\n"
 		"CPU presets: power|eco, balanced, performance|bp, turbo\n"
-		"Fan curve points: temp:cpu%:gpu% (CSV), e.g. 40:25:20,75:50:45,95:100:90\n"
+		"Fan curve: cpu='(90,100,95),(85,89,90)' gpu='…' interval_ms=1000\n"
+		"  band = (temp_lo,temp_hi,duty%%) per axis (CPU and/or GPU)\n"
 		"\n"
 		"Env: PERFECTSENSE_SYSFS / PERFECTSENSE_KB_SYSFS / PERFECTSENSE_LOGO_SYSFS\n",
 		out);
@@ -267,28 +268,43 @@ static int cmd_fan(int argc, char **argv)
 			(void)ps_temps_read(&cpu_c, &gpu_c);
 			ps_fan_curve_eval(&cfg, cpu_c, gpu_c, &eval_c, &eval_g);
 			if (g_json) {
-				printf("{\"enabled\":%s,\"interval_ms\":%d,\"n_points\":%d,",
+				printf("{\"enabled\":%s,\"interval_ms\":%d,",
 				       cfg.enabled ? "true" : "false",
-				       cfg.interval_ms, cfg.n_points);
+				       cfg.interval_ms);
 				printf("\"temp_cpu\":%d,\"temp_gpu\":%d,"
-				       "\"eval\":{\"cpu\":%u,\"gpu\":%u},\"points\":[",
+				       "\"eval\":{\"cpu\":%u,\"gpu\":%u},\"cpu\":[",
 				       cpu_c, gpu_c, eval_c, eval_g);
-				for (i = 0; i < cfg.n_points; i++) {
-					printf("%s{\"temp\":%d,\"cpu\":%u,\"gpu\":%u}",
-					       i ? "," : "", cfg.points[i].temp_c,
-					       cfg.points[i].cpu_pct,
-					       cfg.points[i].gpu_pct);
-				}
+				for (i = 0; i < cfg.cpu.n_bands; i++)
+					printf("%s{\"lo\":%d,\"hi\":%d,\"duty\":%u}",
+					       i ? "," : "",
+					       cfg.cpu.bands[i].temp_lo,
+					       cfg.cpu.bands[i].temp_hi,
+					       cfg.cpu.bands[i].duty_pct);
+				printf("],\"gpu\":[");
+				for (i = 0; i < cfg.gpu.n_bands; i++)
+					printf("%s{\"lo\":%d,\"hi\":%d,\"duty\":%u}",
+					       i ? "," : "",
+					       cfg.gpu.bands[i].temp_lo,
+					       cfg.gpu.bands[i].temp_hi,
+					       cfg.gpu.bands[i].duty_pct);
 				puts("]}");
 			} else {
 				printf("fan curve: %s\n",
 				       cfg.enabled ? "on" : "off");
 				printf("interval_ms: %d\n", cfg.interval_ms);
-				printf("points (temp:cpu%%:gpu%%):");
-				for (i = 0; i < cfg.n_points; i++)
-					printf(" %d:%u:%u", cfg.points[i].temp_c,
-					       cfg.points[i].cpu_pct,
-					       cfg.points[i].gpu_pct);
+				printf("cpu bands (lo,hi,duty%%):");
+				for (i = 0; i < cfg.cpu.n_bands; i++)
+					printf(" (%d,%d,%u)",
+					       cfg.cpu.bands[i].temp_lo,
+					       cfg.cpu.bands[i].temp_hi,
+					       cfg.cpu.bands[i].duty_pct);
+				putchar('\n');
+				printf("gpu bands (lo,hi,duty%%):");
+				for (i = 0; i < cfg.gpu.n_bands; i++)
+					printf(" (%d,%d,%u)",
+					       cfg.gpu.bands[i].temp_lo,
+					       cfg.gpu.bands[i].temp_hi,
+					       cfg.gpu.bands[i].duty_pct);
 				putchar('\n');
 				printf("temp: cpu=%d gpu=%d → eval duty %u,%u\n",
 				       cpu_c, gpu_c, eval_c, eval_g);
@@ -312,14 +328,19 @@ static int cmd_fan(int argc, char **argv)
 					cfg.interval_ms = atoi(eq + 1);
 				} else if (!strcmp(key, "enabled")) {
 					cfg.enabled = atoi(eq + 1) ? 1 : 0;
-				} else if (!strcmp(key, "points")) {
-					err = ps_fan_curve_parse_points(eq + 1,
-									&cfg);
+				} else if (!strcmp(key, "cpu")) {
+					err = ps_fan_curve_parse_bands(eq + 1,
+								       &cfg.cpu);
+					if (err)
+						return fail(err);
+				} else if (!strcmp(key, "gpu")) {
+					err = ps_fan_curve_parse_bands(eq + 1,
+								       &cfg.gpu);
 					if (err)
 						return fail(err);
 				} else {
 					fprintf(stderr,
-						"perfectsense: unknown key '%s'\n",
+						"perfectsense: unknown key '%s' (use cpu= gpu= interval_ms=)\n",
 						key);
 					return 1;
 				}

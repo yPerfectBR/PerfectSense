@@ -1,0 +1,23 @@
+# PerfectSense — Arch Linux (skeleton)
+
+pkgname=perfectsense
+pkgver=0.0.0
+pkgrel=1
+pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
+arch=('x86_64')
+url='https://github.com/yPerfectBR/PerfectSense'
+license=('AGPL-3.0-or-later' 'GPL-2.0-or-later')
+depends=('dkms' 'systemd-libs')
+makedepends=('meson' 'ninja' 'linux-headers')
+source=()
+sha256sums=()
+
+# Phase 0: placeholder PKGBUILD. Real package() will:
+#  - meson install userspace
+#  - install kmod sources for DKMS
+#  - install dbus/systemd/udev/modprobe.d blacklist snippets
+
+package() {
+  echo 'PKGBUILD skeleton — not installable yet' >&2
+  return 1
+}

@@ -3,7 +3,7 @@
 project(
   'perfectsense',
   'c',
-  version: '0.0.7',
+  version: '0.0.8',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -18,7 +18,7 @@ libsystemd = dependency('libsystemd')
 
 libperfectsense = library(
   'perfectsense',
-  'lib/perfectsense.c',
+  ['lib/perfectsense.c', 'lib/cpu_power.c'],
   include_directories: inc,
   install: true,
   version: meson.project_version(),
@@ -71,5 +71,5 @@ summary({
   'cli': cli_exe.name(),
   'daemon': daemon_exe.name(),
   'lib': libperfectsense.name(),
-  'note': 'Phase 7 — perfectsensed + D-Bus Sense1',
+  'note': 'Phase 8 — CPU power presets',
 }, section: 'PerfectSense')

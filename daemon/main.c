@@ -405,7 +405,153 @@ static int method_refresh(sd_bus_message *m, void *userdata, sd_bus_error *err)
 		g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "ThermalProfile",
 		"PlatformProfile", "AcOnline", "FanDutyCpu", "FanDutyGpu",
 		"FanTargetCpu", "FanTargetGpu", "FanAuto", "BatteryLimiter",
-		"UsbCharging", "Rgb", "Logo", "ApiVersion", "Available", NULL);
+		"UsbCharging", "Rgb", "Logo", "ApiVersion", "Available",
+		"CpuGovernor", "CpuEpp", "CpuTurbo", "CpuMaxPerfPct",
+		"CpuPl1Uw", "CpuPl2Uw", NULL);
+	return sd_bus_reply_method_return(m, NULL);
+}
+
+static int prop_cpu_governor(sd_bus *bus, const char *path, const char *iface,
+			     const char *prop, sd_bus_message *reply,
+			     void *userdata, sd_bus_error *err)
+{
+	struct ps_cpu_power st;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_cpu_power_read(&st);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "s", st.governor);
+}
+
+static int prop_cpu_epp(sd_bus *bus, const char *path, const char *iface,
+			const char *prop, sd_bus_message *reply, void *userdata,
+			sd_bus_error *err)
+{
+	struct ps_cpu_power st;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_cpu_power_read(&st);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "s", st.epp);
+}
+
+static int prop_cpu_turbo(sd_bus *bus, const char *path, const char *iface,
+			  const char *prop, sd_bus_message *reply,
+			  void *userdata, sd_bus_error *err)
+{
+	struct ps_cpu_power st;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_cpu_power_read(&st);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "b", st.no_turbo == 0);
+}
+
+static int prop_cpu_max_perf(sd_bus *bus, const char *path, const char *iface,
+			     const char *prop, sd_bus_message *reply,
+			     void *userdata, sd_bus_error *err)
+{
+	struct ps_cpu_power st;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_cpu_power_read(&st);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "u", st.max_perf_pct);
+}
+
+static int prop_cpu_pl1(sd_bus *bus, const char *path, const char *iface,
+			const char *prop, sd_bus_message *reply, void *userdata,
+			sd_bus_error *err)
+{
+	struct ps_cpu_power st;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_cpu_power_read(&st);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "t", (uint64_t)st.pl1_uw);
+}
+
+static int prop_cpu_pl2(sd_bus *bus, const char *path, const char *iface,
+			const char *prop, sd_bus_message *reply, void *userdata,
+			sd_bus_error *err)
+{
+	struct ps_cpu_power st;
+	int r;
+
+	(void)bus;
+	(void)path;
+	(void)iface;
+	(void)prop;
+	(void)userdata;
+	r = ps_cpu_power_read(&st);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	return sd_bus_message_append(reply, "t", (uint64_t)st.pl2_uw);
+}
+
+static int method_cpu_preset(sd_bus_message *m, void *userdata,
+			     sd_bus_error *err)
+{
+	const char *name = NULL;
+	int sync = 0;
+	int r;
+
+	(void)userdata;
+	r = sd_bus_message_read(m, "sb", &name, &sync);
+	if (r < 0)
+		return r;
+	r = ps_cpu_power_preset(name, sync);
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	sd_bus_emit_properties_changed(
+		g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "CpuGovernor", "CpuEpp",
+		"CpuTurbo", "CpuMaxPerfPct", "CpuPl1Uw", "CpuPl2Uw",
+		"ThermalProfile", "PlatformProfile", NULL);
+	return sd_bus_reply_method_return(m, NULL);
+}
+
+static int method_cpu_restore(sd_bus_message *m, void *userdata,
+			      sd_bus_error *err)
+{
+	int r;
+
+	(void)userdata;
+	r = ps_cpu_power_restore();
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	sd_bus_emit_properties_changed(
+		g_bus, PS_DBUS_PATH, PS_DBUS_IFACE, "CpuGovernor", "CpuEpp",
+		"CpuTurbo", "CpuMaxPerfPct", "CpuPl1Uw", "CpuPl2Uw", NULL);
 	return sd_bus_reply_method_return(m, NULL);
 }
 
@@ -429,6 +575,12 @@ static const sd_bus_vtable sense1_vtable[] = {
 	SD_BUS_PROPERTY("UsbCharging", "i", prop_usb_charging, 0, 0),
 	SD_BUS_PROPERTY("Rgb", "s", prop_rgb, 0, 0),
 	SD_BUS_PROPERTY("Logo", "s", prop_logo, 0, 0),
+	SD_BUS_PROPERTY("CpuGovernor", "s", prop_cpu_governor, 0, 0),
+	SD_BUS_PROPERTY("CpuEpp", "s", prop_cpu_epp, 0, 0),
+	SD_BUS_PROPERTY("CpuTurbo", "b", prop_cpu_turbo, 0, 0),
+	SD_BUS_PROPERTY("CpuMaxPerfPct", "u", prop_cpu_max_perf, 0, 0),
+	SD_BUS_PROPERTY("CpuPl1Uw", "t", prop_cpu_pl1, 0, 0),
+	SD_BUS_PROPERTY("CpuPl2Uw", "t", prop_cpu_pl2, 0, 0),
 
 	SD_BUS_METHOD("SetFanTarget", "uu", NULL, method_set_fan_target,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
@@ -439,6 +591,10 @@ static const sd_bus_vtable sense1_vtable[] = {
 	SD_BUS_METHOD("SetLogo", "s", NULL, method_set_logo,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_METHOD("Refresh", NULL, NULL, method_refresh,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_METHOD("CpuPreset", "sb", NULL, method_cpu_preset,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_METHOD("CpuRestore", NULL, NULL, method_cpu_restore,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
 
 	SD_BUS_SIGNAL("ProfileChanged", "s", 0),

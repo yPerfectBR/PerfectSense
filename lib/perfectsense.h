@@ -62,6 +62,36 @@ int ps_logo_set(const char *color_csv);
 int ps_logo_off(void);
 int ps_lighting_reset(void);
 
+/* Phase 8 — CPU power (userspace sysfs) */
+struct ps_cpu_power {
+	int available;
+	char governor[32];
+	char epp[32];
+	int no_turbo; /* 0/1, or -1 if unavailable */
+	unsigned max_perf_pct;
+	unsigned min_perf_pct;
+	unsigned scaling_max_khz;
+	unsigned scaling_min_khz;
+	unsigned cpuinfo_max_khz;
+	unsigned long pl1_uw;
+	unsigned long pl2_uw;
+};
+
+int ps_cpu_power_available(void);
+int ps_cpu_power_read(struct ps_cpu_power *out);
+int ps_cpu_power_set_governor(const char *name);
+int ps_cpu_power_set_epp(const char *name);
+int ps_cpu_power_set_turbo(int enabled);
+int ps_cpu_power_set_max_perf_pct(unsigned pct);
+int ps_cpu_power_set_scaling_max_khz(unsigned khz);
+int ps_cpu_power_set_pl1_uw(unsigned long uw);
+int ps_cpu_power_set_pl2_uw(unsigned long uw);
+int ps_cpu_power_snapshot_save(void);
+int ps_cpu_power_snapshot_clear(void);
+int ps_cpu_power_restore(void);
+/* presets: power|eco, balanced, performance|bp, turbo; sync_platform_profile≠0 links thermal */
+int ps_cpu_power_preset(const char *name, int sync_platform_profile);
+
 const char *ps_strerror(int err);
 
 #ifdef __cplusplus

@@ -16,6 +16,12 @@
     <property name="UsbCharging" type="i" access="read"/>
     <property name="Rgb" type="s" access="read"/>
     <property name="Logo" type="s" access="read"/>
+    <property name="CpuGovernor" type="s" access="read"/>
+    <property name="CpuEpp" type="s" access="read"/>
+    <property name="CpuTurbo" type="b" access="read"/>
+    <property name="CpuMaxPerfPct" type="u" access="read"/>
+    <property name="CpuPl1Uw" type="t" access="read"/>
+    <property name="CpuPl2Uw" type="t" access="read"/>
     <method name="SetFanTarget">
       <arg direction="in" type="u" name="cpu"/>
       <arg direction="in" type="u" name="gpu"/>
@@ -28,6 +34,11 @@
       <arg direction="in" type="s" name="color_csv"/>
     </method>
     <method name="Refresh"/>
+    <method name="CpuPreset">
+      <arg direction="in" type="s" name="name"/>
+      <arg direction="in" type="b" name="sync_platform_profile"/>
+    </method>
+    <method name="CpuRestore"/>
     <signal name="ProfileChanged">
       <arg type="s" name="profile"/>
     </signal>

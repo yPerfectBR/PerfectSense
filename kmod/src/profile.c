@@ -129,6 +129,10 @@ int ps_thermal_profile_set(u8 tp)
 	if (err)
 		return err;
 
+	/* Quiet/Eco: return fans to firmware auto (OEM-like behaviour) */
+	if (tp == PS_TP_QUIET || tp == PS_TP_ECO)
+		ps_fan_set_auto();
+
 	ps_platform_profile_notify();
 	return 0;
 }

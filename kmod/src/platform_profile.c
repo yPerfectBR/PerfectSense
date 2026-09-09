@@ -77,7 +77,14 @@ static int ps_pp_set(struct device *dev, enum platform_profile_option profile)
 			       tp == PS_TP_QUIET))
 			return -EOPNOTSUPP;
 
-		return ps_wmi_set_misc(PS_MISC_PLATFORM_PROFILE, tp);
+		err = ps_wmi_set_misc(PS_MISC_PLATFORM_PROFILE, tp);
+		if (err)
+			return err;
+
+		if (tp == PS_TP_QUIET || tp == PS_TP_ECO)
+			ps_fan_set_auto();
+
+		return 0;
 	}
 }
 

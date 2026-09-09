@@ -6,14 +6,17 @@
 #include <linux/platform_profile.h>
 #include <linux/types.h>
 
-#define PS_API_VERSION		2
+#define PS_API_VERSION		3
 
 /* Acer gaming WMI GUID (Predator V4 class) */
 #define PS_WMID_GUID4		"7A4DDFE7-5B5D-40B4-8595-4408E0CC7F56"
 
-#define PS_WMID_GET_SYS_INFO	5
-#define PS_WMID_SET_MISC	22
-#define PS_WMID_GET_MISC	23
+#define PS_WMID_GET_SYS_INFO		5
+#define PS_WMID_SET_FAN_BEHAVIOR	14
+#define PS_WMID_SET_FAN_SPEED		16
+#define PS_WMID_GET_FAN_SPEED		17
+#define PS_WMID_SET_MISC		22
+#define PS_WMID_GET_MISC		23
 
 #define PS_CMD_BAT_STATUS	0x02
 
@@ -24,6 +27,12 @@
 #define PS_MISC_VALUE_MASK	GENMASK_ULL(15, 8)
 #define PS_MISC_STATUS_MASK	GENMASK_ULL(7, 0)
 
+#define PS_FAN_ID_CPU		0x01
+#define PS_FAN_ID_GPU		0x04
+#define PS_FAN_ID_MASK		GENMASK_ULL(7, 0)
+#define PS_FAN_VALUE_MASK	GENMASK_ULL(15, 8)
+#define PS_FAN_STATUS_MASK	GENMASK_ULL(7, 0)
+
 /* Firmware thermal profile codes (Predator V4) */
 enum ps_thermal_profile {
 	PS_TP_QUIET		= 0x00,
@@ -33,6 +42,8 @@ enum ps_thermal_profile {
 	PS_TP_ECO		= 0x06,
 };
 
+int ps_wmi_method_u64(u32 method_id, u64 in, u64 *out);
+int ps_wmi_method_u32_u64(u32 method_id, u32 in, u64 *out);
 int ps_wmi_get_misc(u8 index, u8 *value);
 int ps_wmi_set_misc(u8 index, u8 value);
 int ps_wmi_ac_online(bool *online);
@@ -44,6 +55,11 @@ const char *ps_thermal_profile_name(u8 tp);
 
 int ps_tp_to_platform(u8 tp, enum platform_profile_option *profile);
 int ps_platform_to_tp(enum platform_profile_option profile, u8 *tp);
+
+int ps_fan_get_duty(u8 *cpu_duty, u8 *gpu_duty);
+int ps_fan_set(u8 cpu_pct, u8 gpu_pct);
+int ps_fan_set_auto(void);
+void ps_fan_get_target(u8 *cpu_pct, u8 *gpu_pct);
 
 int ps_sysfs_register(struct device *dev);
 void ps_sysfs_unregister(struct device *dev);

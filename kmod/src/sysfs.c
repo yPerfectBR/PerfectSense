@@ -84,11 +84,57 @@ static ssize_t ac_online_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(ac_online);
 
+static ssize_t fan_duty_show(struct device *dev,
+			     struct device_attribute *attr, char *buf)
+{
+	u8 cpu_duty, gpu_duty;
+	int err;
+
+	err = ps_fan_get_duty(&cpu_duty, &gpu_duty);
+	if (err)
+		return err;
+
+	return sysfs_emit(buf, "%u,%u\n", cpu_duty, gpu_duty);
+}
+static DEVICE_ATTR_RO(fan_duty);
+
+static ssize_t fan_speed_show(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	u8 cpu_pct, gpu_pct;
+
+	ps_fan_get_target(&cpu_pct, &gpu_pct);
+	return sysfs_emit(buf, "%u,%u\n", cpu_pct, gpu_pct);
+}
+
+static ssize_t fan_speed_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	unsigned int cpu_pct, gpu_pct;
+	int err;
+
+	if (sscanf(buf, "%u,%u", &cpu_pct, &gpu_pct) != 2)
+		return -EINVAL;
+
+	if (cpu_pct > 100 || gpu_pct > 100)
+		return -EINVAL;
+
+	err = ps_fan_set((u8)cpu_pct, (u8)gpu_pct);
+	if (err)
+		return err;
+
+	return count;
+}
+static DEVICE_ATTR_RW(fan_speed);
+
 static struct attribute *ps_attrs[] = {
 	&dev_attr_api_version.attr,
 	&dev_attr_thermal_profile.attr,
 	&dev_attr_thermal_profile_raw.attr,
 	&dev_attr_ac_online.attr,
+	&dev_attr_fan_duty.attr,
+	&dev_attr_fan_speed.attr,
 	NULL,
 };
 

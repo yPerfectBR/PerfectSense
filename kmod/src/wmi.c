@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * PerfectSense — WMI helpers (gaming misc + AC status).
+ * PerfectSense — WMI helpers (gaming misc + AC status + raw methods).
  */
 
 #include <linux/acpi.h>
@@ -11,7 +11,7 @@
 
 #include "perfectsense.h"
 
-static int ps_wmi_eval_u64(u32 method_id, u64 in, u64 *out)
+int ps_wmi_method_u64(u32 method_id, u64 in, u64 *out)
 {
 	struct acpi_buffer input = { sizeof(in), &in };
 	struct acpi_buffer result = { ACPI_ALLOCATE_BUFFER, NULL };
@@ -42,7 +42,7 @@ static int ps_wmi_eval_u64(u32 method_id, u64 in, u64 *out)
 	return 0;
 }
 
-static int ps_wmi_eval_u32_in_u64_out(u32 method_id, u32 in, u64 *out)
+int ps_wmi_method_u32_u64(u32 method_id, u32 in, u64 *out)
 {
 	struct acpi_buffer result = { ACPI_ALLOCATE_BUFFER, NULL };
 	struct acpi_buffer input = {
@@ -90,7 +90,7 @@ int ps_wmi_get_misc(u8 index, u8 *value)
 
 	input |= FIELD_PREP(PS_MISC_INDEX_MASK, index);
 
-	ret = ps_wmi_eval_u32_in_u64_out(PS_WMID_GET_MISC, (u32)input, &result);
+	ret = ps_wmi_method_u32_u64(PS_WMID_GET_MISC, (u32)input, &result);
 	if (ret < 0)
 		return ret;
 
@@ -110,7 +110,7 @@ int ps_wmi_set_misc(u8 index, u8 value)
 	input |= FIELD_PREP(PS_MISC_INDEX_MASK, index);
 	input |= FIELD_PREP(PS_MISC_VALUE_MASK, value);
 
-	ret = ps_wmi_eval_u64(PS_WMID_SET_MISC, input, &result);
+	ret = ps_wmi_method_u64(PS_WMID_SET_MISC, input, &result);
 	if (ret < 0)
 		return ret;
 
@@ -128,7 +128,7 @@ int ps_wmi_ac_online(bool *online)
 	if (!online)
 		return -EINVAL;
 
-	ret = ps_wmi_eval_u64(PS_WMID_GET_SYS_INFO, PS_CMD_BAT_STATUS, &on_ac);
+	ret = ps_wmi_method_u64(PS_WMID_GET_SYS_INFO, PS_CMD_BAT_STATUS, &on_ac);
 	if (ret < 0)
 		return ret;
 

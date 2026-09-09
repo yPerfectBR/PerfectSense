@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * PerfectSense — core init (Phase 2: profile set + platform_profile).
+ * PerfectSense — core init (Phase 3: fans get/set/auto).
  *
  * Unload conflicting Acer gaming WMI modules before loading this driver.
  */
@@ -60,8 +60,21 @@ static int __init perfectsense_init(void)
 		goto err_sysfs;
 	}
 
-	pr_info("loaded (api_version=%u, thermal_profile=%s / 0x%02x, ac=%d)\n",
-		PS_API_VERSION, ps_thermal_profile_name(tp), tp, on_ac ? 1 : 0);
+	/* Start from firmware auto unless userspace overrides */
+	ps_fan_set_auto();
+
+	{
+		u8 cpu_d = 0, gpu_d = 0;
+
+		if (!ps_fan_get_duty(&cpu_d, &gpu_d))
+			pr_info("loaded (api_version=%u, thermal_profile=%s / 0x%02x, ac=%d, fan_duty=%u,%u)\n",
+				PS_API_VERSION, ps_thermal_profile_name(tp), tp,
+				on_ac ? 1 : 0, cpu_d, gpu_d);
+		else
+			pr_info("loaded (api_version=%u, thermal_profile=%s / 0x%02x, ac=%d)\n",
+				PS_API_VERSION, ps_thermal_profile_name(tp), tp,
+				on_ac ? 1 : 0);
+	}
 	return 0;
 
 err_sysfs:
@@ -74,6 +87,8 @@ err_pdev:
 
 static void __exit perfectsense_exit(void)
 {
+	/* Hand control back to firmware before leaving */
+	ps_fan_set_auto();
 	ps_platform_profile_unregister();
 	if (ps_pdev) {
 		ps_sysfs_unregister(&ps_pdev->dev);
@@ -89,5 +104,5 @@ module_exit(perfectsense_exit);
 MODULE_AUTHOR("PerfectSense authors");
 MODULE_DESCRIPTION("PerfectSense WMI driver (PHN16-72)");
 MODULE_LICENSE("GPL");
-MODULE_VERSION("0.2.0");
+MODULE_VERSION("0.3.0");
 MODULE_ALIAS("dmi:*:svnAcer*:pn*PHN16-72*:");

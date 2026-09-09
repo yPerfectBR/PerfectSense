@@ -1,16 +1,22 @@
 # Maintainer: PerfectSense contributors
 # https://github.com/yPerfectBR/PerfectSense
 #
+# Packaging target: **Arch Linux** (official repos only).
+# Arch-based derivatives (CachyOS, EndeavourOS, …) may reuse this PKGBUILD, but
+# they are not a support focus — never depend on *-cachyos or other derivative
+# package names. Use stock Arch packages: linux / linux-headers, nvidia-open,
+# nvidia-utils, dkms, systemd.
+#
 # Build from a checkout:
 #   cd packaging/arch && PERFECTSENSE_SRC=../.. makepkg -si
 # Or set PERFECTSENSE_SRC to the repository root.
 #
-# Cutover: this package blacklists nekro_sense/acer-wmi, loads perfectsense at
-# boot, and enables perfectsensed. See docs/*/cutover.md.
+# Cutover: blacklists nekro_sense/acer-wmi, loads perfectsense at boot, enables
+# perfectsensed. See docs/*/cutover.md.
 
 pkgname=perfectsense
 pkgver=0.0.14
-pkgrel=1
+pkgrel=2
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
 url='https://github.com/yPerfectBR/PerfectSense'
@@ -18,9 +24,9 @@ license=('AGPL-3.0-or-later' 'GPL-2.0-or-later')
 depends=('dkms' 'systemd-libs')
 makedepends=('meson' 'ninja' 'systemd')
 optdepends=(
-  'linux-headers: build perfectsense.ko via DKMS'
-  'nvidia-open: recommended NVIDIA driver for Helios'
-  'nvidia-utils: nvidia-powerd Dynamic Boost (~80W→~140W)'
+  'linux-headers: DKMS build against the stock Arch linux kernel'
+  'nvidia-open: recommended NVIDIA driver (Arch official)'
+  'nvidia-utils: provides nvidia-powerd Dynamic Boost (~80W→~140W)'
 )
 # Avoid two writers on the same Acer gaming WMI path.
 conflicts=('nekro-sense' 'linuwu-sense')

@@ -31,8 +31,12 @@ DAEMON="${ROOT}/build/perfectsensed"
 echo "==> PerfectSense cutover (source tree: ${ROOT})"
 
 if [[ ! -f ${KO} ]]; then
-  echo "==> Building kmod…"
-  make -C "${ROOT}/kmod" LLVM=1 || make -C "${ROOT}/kmod"
+  echo "==> Building kmod (Arch stock gcc first; LLVM=1 only if needed)…"
+  # Official Arch linux headers are gcc-built. LLVM=1 is a fallback for some
+  # Arch-based derivatives with clang kernels — not the primary path.
+  if ! make -C "${ROOT}/kmod"; then
+    make -C "${ROOT}/kmod" LLVM=1
+  fi
 fi
 if [[ ! -x ${CLI} || ! -x ${DAEMON} ]]; then
   echo "==> Building userspace…"

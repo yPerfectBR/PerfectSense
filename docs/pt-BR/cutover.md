@@ -4,6 +4,9 @@
 Acer gaming: blacklist/unload de rivais (`nekro_sense`, `acer-wmi`), carregar
 `perfectsense.ko` no boot e correr `perfectsensed`.
 
+Alvo de packaging: **Arch Linux** puro (`linux` / `linux-headers`, `nvidia-open`,
+`nvidia-utils`). Derivados Arch podem reaproveitar o PKGBUILD, mas não são o foco.
+
 ## Pacote Arch (recomendado)
 
 ```bash

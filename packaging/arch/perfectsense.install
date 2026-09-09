@@ -3,8 +3,9 @@ post_install() {
 
   echo '==> PerfectSense: installing DKMS module…'
   if ! dkms install "perfectsense/${ver}"; then
-    echo '==> WARNING: dkms install failed — install matching linux-headers and retry:'
-    echo "    sudo dkms install perfectsense/${ver}"
+  echo '==> WARNING: dkms install failed — on Arch install matching headers and retry:'
+  echo '    sudo pacman -S linux-headers'
+  echo "    sudo dkms install perfectsense/${ver}"
   fi
 
   systemctl daemon-reload >/dev/null 2>&1 || true

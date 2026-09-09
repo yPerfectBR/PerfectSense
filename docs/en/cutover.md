@@ -7,6 +7,19 @@ this machine for day-to-day use: unload/blacklist rivals (`nekro_sense`,
 Pandora/desktop code is out of scope here; this document is about the hardware
 stack in this repository.
 
+## Distro target
+
+**Arch Linux** (official packages) is the supported packaging target:
+
+| Need | Arch package |
+|------|----------------|
+| Kernel headers for DKMS | `linux-headers` (with `linux`) |
+| NVIDIA driver | `nvidia-open` |
+| Dynamic Boost daemon | `nvidia-utils` (`nvidia-powerd.service`) |
+
+Arch-based derivatives may reuse the same PKGBUILD, but CachyOS-/derivative-
+specific package names are **not** used or supported as first-class deps.
+
 ## What the package does
 
 | Piece | Role |
@@ -72,4 +85,6 @@ sudo modprobe nekro_sense
 
 - Only one WMI gaming driver may own the notify GUID / EC path.
 - After cutover, reboot once so blacklist + modules-load apply cleanly.
-- Keep a known-good kernel/`linux-headers` pair so DKMS can build `perfectsense.ko`.
+- Keep matching **Arch** `linux` + `linux-headers` so DKMS can build
+  `perfectsense.ko` (not derivative-specific header packages as the documented
+  path).

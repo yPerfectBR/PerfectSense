@@ -66,6 +66,10 @@ sudo systemctl reboot
 PerfectSense then toggles the service with thermal profiles: **off** for
 `low-power`/`quiet`, **on** from `balanced` upward (Boost stays dynamic).
 
+Packaging target is **Arch Linux** (official repos: `linux`/`linux-headers`,
+`nvidia-open`, `nvidia-utils`). Arch-based derivatives may work; they are not
+the support focus.
+
 ## Build
 
 ```bash

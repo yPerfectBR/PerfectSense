@@ -1,0 +1,25 @@
+# Build
+/build/
+/builddir/
+*.o
+*.ko
+*.mod
+*.mod.c
+*.cmd
+Module.symvers
+modules.order
+.tmp_versions/
+*.a
+*.so
+*.so.*
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Python (none expected; ignore local noise)
+__pycache__/
+*.pyc

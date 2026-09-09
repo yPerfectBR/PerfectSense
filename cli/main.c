@@ -1,8 +1,265 @@
-#include <stdio.h>
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+ * perfectsense — one-shot CLI over libperfectsense (no daemon required).
+ */
 
-int main(void)
+#include "perfectsense.h"
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int g_json;
+
+static void usage(FILE *out)
 {
-	puts("perfectsense: Phase 0 stub — no hardware commands yet");
-	puts("See docs/en/roadmap/roadmap.md");
+	fputs(
+		"Usage: perfectsense [--json] <command> [args]\n"
+		"\n"
+		"Commands:\n"
+		"  status                 Show profile, AC, and fan state\n"
+		"  mode get               Show thermal profile\n"
+		"  mode set <name>        Set thermal profile\n"
+		"  fan get                Show live duty and target\n"
+		"  fan set <cpu> <gpu>    Set fan target percent (0-100)\n"
+		"  fan auto               Return fans to firmware auto (0,0)\n"
+		"  help                   Show this help\n"
+		"\n"
+		"Mode names: low-power | quiet | balanced |\n"
+		"            balanced-performance | performance\n"
+		"Aliases:    eco→low-power, turbo→performance, bp→balanced-performance\n"
+		"\n"
+		"Env: PERFECTSENSE_SYSFS  override sysfs root\n"
+		"     (default: /sys/devices/platform/perfectsense/perfect_sense)\n",
+		out);
+}
+
+static int fail(int err)
+{
+	fprintf(stderr, "perfectsense: %s\n", ps_strerror(err));
+	return 1;
+}
+
+static int emit_status_json(const struct ps_status *s)
+{
+	printf(
+		"{\"api_version\":%u,"
+		"\"thermal_profile\":\"%s\","
+		"\"thermal_profile_raw\":\"0x%02x\","
+		"\"ac_online\":%s,"
+		"\"platform_profile\":\"%s\","
+		"\"fan\":{"
+		"\"duty\":{\"cpu\":%u,\"gpu\":%u},"
+		"\"target\":{\"cpu\":%u,\"gpu\":%u},"
+		"\"auto\":%s"
+		"}}\n",
+		s->api_version, s->thermal_profile, s->thermal_profile_raw,
+		s->ac_online ? "true" : "false", s->platform_profile,
+		s->fan_duty_cpu, s->fan_duty_gpu, s->fan_target_cpu,
+		s->fan_target_gpu, s->fan_auto ? "true" : "false");
 	return 0;
+}
+
+static int emit_status_text(const struct ps_status *s)
+{
+	printf("api_version: %u\n", s->api_version);
+	printf("thermal_profile: %s (0x%02x)\n", s->thermal_profile,
+	       s->thermal_profile_raw);
+	printf("platform_profile: %s\n", s->platform_profile);
+	printf("ac_online: %s\n", s->ac_online ? "yes" : "no");
+	printf("fan_duty: %u,%u\n", s->fan_duty_cpu, s->fan_duty_gpu);
+	printf("fan_target: %u,%u%s\n", s->fan_target_cpu, s->fan_target_gpu,
+	       s->fan_auto ? " (auto)" : "");
+	return 0;
+}
+
+static int cmd_status(void)
+{
+	struct ps_status st;
+	int err = ps_status_read(&st);
+
+	if (err)
+		return fail(err);
+	return g_json ? emit_status_json(&st) : emit_status_text(&st);
+}
+
+static int cmd_mode(int argc, char **argv)
+{
+	const char *sub;
+	char buf[64];
+	int err;
+
+	if (argc < 1) {
+		usage(stderr);
+		return 1;
+	}
+	sub = argv[0];
+
+	if (!strcmp(sub, "get")) {
+		err = ps_mode_get(buf, sizeof(buf));
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"thermal_profile\":\"%s\"}\n", buf);
+		else
+			puts(buf);
+		return 0;
+	}
+
+	if (!strcmp(sub, "set")) {
+		if (argc < 2) {
+			fputs("perfectsense: mode set requires <name>\n",
+			      stderr);
+			return 1;
+		}
+		err = ps_mode_set(argv[1]);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"thermal_profile\":\"%s\"}\n",
+			       argv[1]);
+		else
+			printf("thermal_profile set to %s\n", argv[1]);
+		return 0;
+	}
+
+	fprintf(stderr, "perfectsense: unknown mode subcommand '%s'\n", sub);
+	return 1;
+}
+
+static int cmd_fan(int argc, char **argv)
+{
+	const char *sub;
+	unsigned cpu, gpu;
+	int err;
+
+	if (argc < 1) {
+		usage(stderr);
+		return 1;
+	}
+	sub = argv[0];
+
+	if (!strcmp(sub, "get")) {
+		err = ps_fan_duty_get(&cpu, &gpu);
+		if (err)
+			return fail(err);
+		{
+			unsigned tc, tg;
+			int auto_mode;
+
+			err = ps_fan_target_get(&tc, &tg);
+			if (err)
+				return fail(err);
+			auto_mode = (tc == 0 && tg == 0);
+			if (g_json) {
+				printf(
+					"{\"duty\":{\"cpu\":%u,\"gpu\":%u},"
+					"\"target\":{\"cpu\":%u,\"gpu\":%u},"
+					"\"auto\":%s}\n",
+					cpu, gpu, tc, tg,
+					auto_mode ? "true" : "false");
+			} else {
+				printf("duty: %u,%u\n", cpu, gpu);
+				printf("target: %u,%u%s\n", tc, tg,
+				       auto_mode ? " (auto)" : "");
+			}
+		}
+		return 0;
+	}
+
+	if (!strcmp(sub, "auto")) {
+		err = ps_fan_set_auto();
+		if (err)
+			return fail(err);
+		if (g_json)
+			puts("{\"ok\":true,\"target\":{\"cpu\":0,\"gpu\":0},"
+			     "\"auto\":true}");
+		else
+			puts("fan target: 0,0 (auto)");
+		return 0;
+	}
+
+	if (!strcmp(sub, "set")) {
+		unsigned long c, g;
+		char *end;
+
+		if (argc < 3) {
+			fputs("perfectsense: fan set requires <cpu> <gpu>\n",
+			      stderr);
+			return 1;
+		}
+		c = strtoul(argv[1], &end, 10);
+		if (*end || c > 100) {
+			fputs("perfectsense: cpu percent must be 0-100\n",
+			      stderr);
+			return 1;
+		}
+		g = strtoul(argv[2], &end, 10);
+		if (*end || g > 100) {
+			fputs("perfectsense: gpu percent must be 0-100\n",
+			      stderr);
+			return 1;
+		}
+		err = ps_fan_set((unsigned)c, (unsigned)g);
+		if (err)
+			return fail(err);
+		if (g_json)
+			printf("{\"ok\":true,\"target\":{\"cpu\":%lu,\"gpu\":%lu},"
+			       "\"auto\":%s}\n",
+			       c, g, (c == 0 && g == 0) ? "true" : "false");
+		else
+			printf("fan target: %lu,%lu\n", c, g);
+		return 0;
+	}
+
+	fprintf(stderr, "perfectsense: unknown fan subcommand '%s'\n", sub);
+	return 1;
+}
+
+int main(int argc, char **argv)
+{
+	int i = 1;
+	const char *cmd;
+
+	while (i < argc && argv[i][0] == '-') {
+		if (!strcmp(argv[i], "--json")) {
+			g_json = 1;
+			i++;
+		} else if (!strcmp(argv[i], "--help") ||
+			   !strcmp(argv[i], "-h")) {
+			usage(stdout);
+			return 0;
+		} else if (!strcmp(argv[i], "--")) {
+			i++;
+			break;
+		} else {
+			fprintf(stderr, "perfectsense: unknown option '%s'\n",
+				argv[i]);
+			usage(stderr);
+			return 1;
+		}
+	}
+
+	if (i >= argc) {
+		usage(stderr);
+		return 1;
+	}
+
+	cmd = argv[i++];
+
+	if (!strcmp(cmd, "help") || !strcmp(cmd, "--help")) {
+		usage(stdout);
+		return 0;
+	}
+	if (!strcmp(cmd, "status"))
+		return cmd_status();
+	if (!strcmp(cmd, "mode"))
+		return cmd_mode(argc - i, argv + i);
+	if (!strcmp(cmd, "fan"))
+		return cmd_fan(argc - i, argv + i);
+
+	fprintf(stderr, "perfectsense: unknown command '%s'\n", cmd);
+	usage(stderr);
+	return 1;
 }

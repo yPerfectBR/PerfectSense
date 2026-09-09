@@ -1,10 +1,9 @@
-# Placeholder — PerfectSense userspace (Meson)
-# Phase 0 stub: targets will be filled as phases land.
+# PerfectSense userspace (Meson)
 
 project(
   'perfectsense',
   'c',
-  version: '0.0.0',
+  version: '0.0.4',
   license: 'AGPL-3.0-or-later',
   meson_version: '>=1.1.0',
   default_options: [
@@ -14,17 +13,37 @@ project(
   ],
 )
 
-# Phase 0: minimal CLI stub so Meson has a real target.
+inc = include_directories('lib')
+
+libperfectsense = library(
+  'perfectsense',
+  'lib/perfectsense.c',
+  include_directories: inc,
+  install: true,
+  version: meson.project_version(),
+  soversion: '0',
+)
+
+install_headers('lib/perfectsense.h')
+
 cli_exe = executable(
   'perfectsense',
   'cli/main.c',
+  include_directories: inc,
+  link_with: libperfectsense,
   install: true,
 )
 
-# Future: subdir('lib') / subdir('daemon')
+pkg = import('pkgconfig')
+pkg.generate(
+  libperfectsense,
+  description: 'PerfectSense sysfs client library',
+  filebase: 'perfectsense',
+)
 
 summary({
   'version': meson.project_version(),
   'cli': cli_exe.name(),
-  'note': 'Phase 0 stub — no hardware backend yet',
+  'lib': libperfectsense.name(),
+  'note': 'Phase 4 — status/mode/fan over sysfs',
 }, section: 'PerfectSense')

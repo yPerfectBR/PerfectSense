@@ -132,44 +132,61 @@ void fa_runtime_get_status(struct fa_runtime_status *st)
 	st->cfg = g_cfg;
 }
 
+static int apply_loaded_cfg(int was_enabled)
+{
+	if (!g_cfg.enabled) {
+		if (was_enabled || g_owned)
+			disengage();
+		disarm_timer();
+		g_paused_manual = 0;
+		return 0;
+	}
+
+	/*
+	 * Keep engage state; next tick recomputes duty from new offsets.
+	 * Re-arm so interval_ms changes take effect immediately.
+	 */
+	return arm_timer(g_cfg.interval_ms);
+}
+
 int fa_runtime_set_enabled(int on)
 {
 	int err;
+	int was_enabled;
 	struct ps_fan_aggressor_config loaded;
 
-	/* Pick up engage/offset edits from conf, then apply requested enabled */
+	/* Pick up engage/offset edits from conf before toggling enabled. */
 	ps_fan_aggressor_config_load(&loaded);
+	was_enabled = g_cfg.enabled;
 	g_cfg = loaded;
 	g_cfg.enabled = on ? 1 : 0;
 	err = ps_fan_aggressor_config_save(&g_cfg);
 	if (err)
 		return err;
-
-	if (!on) {
-		disengage();
-		disarm_timer();
-		g_paused_manual = 0;
-		return 0;
-	}
-	return arm_timer(g_cfg.interval_ms);
+	return apply_loaded_cfg(was_enabled);
 }
 
 int fa_runtime_set_config(const struct ps_fan_aggressor_config *cfg)
 {
-	int was = g_cfg.enabled;
+	int err;
+	int was_enabled;
 
 	if (!cfg)
 		return -EINVAL;
+	was_enabled = g_cfg.enabled;
 	g_cfg = *cfg;
-	ps_fan_aggressor_config_save(&g_cfg);
-	if (g_cfg.enabled) {
-		if (!was || g_timer_fd < 0)
-			return arm_timer(g_cfg.interval_ms);
-		return arm_timer(g_cfg.interval_ms);
-	}
-	if (was)
-		return fa_runtime_set_enabled(0);
-	return 0;
+	err = ps_fan_aggressor_config_save(&g_cfg);
+	if (err)
+		return err;
+	return apply_loaded_cfg(was_enabled);
+}
+
+int fa_runtime_reload(void)
+{
+	int was_enabled = g_cfg.enabled;
+
+	ps_fan_aggressor_config_load(&g_cfg);
+	return apply_loaded_cfg(was_enabled);
 }
 
 void fa_runtime_on_timer(void)

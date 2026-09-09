@@ -77,6 +77,14 @@ FanAggressor enable flag changed.
 .TP
 .B Hotkey (su)
 Firmware/key event name and numeric key code from the module.
+.SH METHODS
+.TP
+.B FanAggressorReload
+Re-read
+.I /etc/perfectsense/fan-aggressor.conf
+and
+.I /run/perfectsense/fan-aggressor.conf
+and re-arm or stop the offset timer without restarting the daemon.
 .SH FILES
 .TP
 .I /usr/lib/systemd/system/perfectsensed.service

@@ -922,6 +922,27 @@ static int method_fa_status(sd_bus_message *m, void *userdata,
 		st.applied_cpu, st.applied_gpu);
 }
 
+static int method_fa_reload(sd_bus_message *m, void *userdata,
+			    sd_bus_error *err)
+{
+	int before = fa_runtime_enabled();
+	int after;
+	int r;
+
+	(void)userdata;
+	r = fa_runtime_reload();
+	if (r < 0)
+		return sd_bus_error_set_errno(err, -r);
+	after = fa_runtime_enabled();
+	if (before != after)
+		sd_bus_emit_signal(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+				   "FanAggressorChanged", "b", after);
+	sd_bus_emit_properties_changed(g_bus, PS_DBUS_PATH, PS_DBUS_IFACE,
+					"FanAggressorEnabled",
+					"FanAggressorActive", NULL);
+	return sd_bus_reply_method_return(m, NULL);
+}
+
 static const sd_bus_vtable sense1_vtable[] = {
 	SD_BUS_VTABLE_START(0),
 
@@ -969,6 +990,8 @@ static const sd_bus_vtable sense1_vtable[] = {
 				 SD_BUS_VTABLE_UNPRIVILEGED),
 	SD_BUS_PROPERTY("FanAggressorActive", "b", prop_fa_active, 0, 0),
 	SD_BUS_METHOD("FanAggressorStatus", NULL, "bbbiiuuuu", method_fa_status,
+		      SD_BUS_VTABLE_UNPRIVILEGED),
+	SD_BUS_METHOD("FanAggressorReload", NULL, NULL, method_fa_reload,
 		      SD_BUS_VTABLE_UNPRIVILEGED),
 
 	SD_BUS_SIGNAL("ProfileChanged", "s", 0),

@@ -44,7 +44,11 @@ Default **off**. Config: `/etc/perfectsense/fan-aggressor.conf` (persist) +
 
 ```text
 perfectsense fan aggressor status|on|off|set engage_c=88 offset_cpu=15 …
+perfectsense fan aggressor reload   # re-read conf in perfectsensed
 ```
+
+`set` / `on` / `off` persist conf and call D-Bus `FanAggressorReload` so the
+daemon picks up engage/offset/interval without restart.
 
 ## Cutover notes
 

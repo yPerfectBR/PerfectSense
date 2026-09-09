@@ -39,6 +39,12 @@ Como no nekro: `nvidia-open` + `nvidia-powerd` para ~80 W→~140 W.
 
 PerfectSense: **off** em `low-power`/`quiet`; **on** de `balanced` para cima.
 
+FanAggressor: `set`/`on`/`off` gravam conf e chamam `FanAggressorReload` no
+daemon (sem restart).
+
 ```text
+perfectsense fan aggressor set offset_cpu=25
+perfectsense fan aggressor reload
+```
 perfectsense gpu powerd get|on|off
 ```

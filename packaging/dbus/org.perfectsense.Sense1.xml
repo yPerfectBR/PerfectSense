@@ -52,6 +52,7 @@
       <arg direction="out" type="u" name="applied_cpu"/>
       <arg direction="out" type="u" name="applied_gpu"/>
     </method>
+    <method name="FanAggressorReload"/>
     <signal name="ProfileChanged">
       <arg type="s" name="profile"/>
     </signal>

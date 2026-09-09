@@ -59,8 +59,15 @@ Aliases:
 .BI "fan get" \fR "|" " fan set " "cpu gpu" \fR "|" " fan auto"
 Read live duty or set target duties (percent), or return fans to firmware auto.
 .TP
-.BI "fan aggressor on" \fR "|" " off" \fR "|" " status" \fR "|" " set " key=val…
-Enable/disable FanAggressor offset mode or edit config
+.BI "fan aggressor on" \fR "|" " off" \fR "|" " status" \fR "|" " reload" \fR "|" " set " key=val…
+Enable/disable FanAggressor offset mode or edit config.
+.B set
+and
+.BR on / off
+persist the conf and ask
+.B perfectsensed
+to reload via D\-Bus
+.BR FanAggressorReload .
 .RB ( engage_c ,
 offsets, floors, …). Persists under
 .I /etc/perfectsense/

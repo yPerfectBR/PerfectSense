@@ -26,6 +26,8 @@ void fa_runtime_get_config(struct ps_fan_aggressor_config *cfg);
 void fa_runtime_get_status(struct fa_runtime_status *st);
 int fa_runtime_set_enabled(int on);
 int fa_runtime_set_config(const struct ps_fan_aggressor_config *cfg);
+/* Re-read conf from disk and re-arm / disengage the timer. */
+int fa_runtime_reload(void);
 void fa_runtime_on_timer(void);
 
 #endif

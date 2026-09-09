@@ -12,6 +12,15 @@
 
 static int g_json;
 
+/* Ask perfectsensed to re-read FanAggressor conf (best-effort). */
+static void daemon_fa_reload(void)
+{
+	(void)system(
+		"busctl --system call org.perfectsense.Sense1 "
+		"/org/perfectsense/Sense1 org.perfectsense.Sense1 "
+		"FanAggressorReload >/dev/null 2>&1");
+}
+
 static void usage(FILE *out)
 {
 	fputs(
@@ -24,7 +33,7 @@ static void usage(FILE *out)
 		"  gpu powerd get|on|off       Dynamic Boost service (~80W / ~140W)\n"
 		"  gpu powermizer get|set …    Preferred Mode (best-effort)\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
-		"  fan aggressor on|off|status|set key=val…\n"
+		"  fan aggressor on|off|status|set|reload key=val…\n"
 		"  battery get|on|off          80% charge limiter\n"
 		"  battery calibration get|on|off\n"
 		"  usb get|set <0|10|20|30>    USB charging while off (minutes)\n"
@@ -211,7 +220,7 @@ static int cmd_fan(int argc, char **argv)
 		int cpu_c = 0, gpu_c = 0;
 
 		if (argc < 2) {
-			fputs("perfectsense: fan aggressor on|off|status|set …\n",
+			fputs("perfectsense: fan aggressor on|off|status|set|reload …\n",
 			      stderr);
 			return 1;
 		}
@@ -291,10 +300,11 @@ static int cmd_fan(int argc, char **argv)
 			err = ps_fan_aggressor_config_save(&cfg);
 			if (err)
 				return fail(err);
+			daemon_fa_reload();
 			if (g_json)
 				puts("{\"ok\":true}");
 			else
-				puts("fan aggressor config saved");
+				puts("fan aggressor config saved (daemon reloaded)");
 			return 0;
 		}
 		if (!strcmp(argv[1], "on") || !strcmp(argv[1], "off")) {
@@ -302,18 +312,9 @@ static int cmd_fan(int argc, char **argv)
 			err = ps_fan_aggressor_config_save(&cfg);
 			if (err)
 				return fail(err);
-			if (cfg.enabled) {
-				(void)system(
-					"busctl set-property org.perfectsense.Sense1 "
-					"/org/perfectsense/Sense1 org.perfectsense.Sense1 "
-					"FanAggressorEnabled b true >/dev/null 2>&1");
-			} else {
-				(void)system(
-					"busctl set-property org.perfectsense.Sense1 "
-					"/org/perfectsense/Sense1 org.perfectsense.Sense1 "
-					"FanAggressorEnabled b false >/dev/null 2>&1");
+			daemon_fa_reload();
+			if (!cfg.enabled)
 				(void)ps_fan_set_auto();
-			}
 			if (g_json)
 				printf("{\"ok\":true,\"fan_aggressor\":%s}\n",
 				       cfg.enabled ? "true" : "false");
@@ -322,7 +323,15 @@ static int cmd_fan(int argc, char **argv)
 				       cfg.enabled ? "on" : "off");
 			return 0;
 		}
-		fputs("perfectsense: fan aggressor on|off|status|set …\n",
+		if (!strcmp(argv[1], "reload")) {
+			daemon_fa_reload();
+			if (g_json)
+				puts("{\"ok\":true}");
+			else
+				puts("fan aggressor: daemon reload requested");
+			return 0;
+		}
+		fputs("perfectsense: fan aggressor on|off|status|set|reload …\n",
 		      stderr);
 		return 1;
 	}

@@ -15,6 +15,7 @@
 #include "fan_curve_runtime.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdint.h>
@@ -24,12 +25,21 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <systemd/sd-bus.h>
 #include <systemd/sd-daemon.h>
 #include <systemd/sd-device.h>
 
 static volatile sig_atomic_t g_stop;
 static volatile sig_atomic_t g_reload;
 static sd_device_monitor *g_udev_mon;
+static sd_bus *g_bus;
+/* Delay inhibitor held until the pre-suspend snapshot is taken (-1 = none). */
+static int g_sleep_lock = -1;
+static struct ps_status g_snap;
+static int g_snap_valid;
+/* GPU OC profile wanted but the dGPU was asleep; retried on the housekeeping tick. */
+static int g_oc_pending;
+#define HOUSEKEEPING_MS 30000
 static char g_last_profile[64];
 /* Profile to restore after AC returns (empty if none). */
 static char g_saved_ac_profile[64];
@@ -261,6 +271,154 @@ out:
 	sd_device_unref(dev);
 }
 
+
+/* ---------- suspend/resume (logind PrepareForSleep) ---------- */
+
+static void take_sleep_lock(void);
+
+static void oc_try_apply(void)
+{
+	char cur[64];
+	int r;
+
+	if (ps_mode_get(cur, sizeof(cur)) < 0)
+		return;
+	r = ps_gpu_oc_apply(cur);
+	if (r == -EAGAIN) {
+		g_oc_pending = 1;
+		return;
+	}
+	g_oc_pending = 0;
+	if (r < 0 && r != -ENODEV && r != -ENOENT && r != -ENOSYS)
+		fprintf(stderr, "perfectsensed: gpu oc %s: %s\n", cur, strerror(-r));
+}
+
+static void snapshot_state(void)
+{
+	memset(&g_snap, 0, sizeof(g_snap));
+	g_snap_valid = ps_status_read(&g_snap) == 0;
+}
+
+static void restore_int(const char *attr, int want, int have)
+{
+	if (want < 0 || want == have)
+		return;
+	if (ps_attr_set_int(attr, want) < 0)
+		fprintf(stderr, "perfectsensed: resume: could not restore %s\n", attr);
+}
+
+/* The EC/firmware can forget runtime settings across suspend: put back anything that differs. */
+static void restore_after_resume(void)
+{
+	struct ps_status now;
+
+	if (!g_snap_valid)
+		return;
+	memset(&now, 0, sizeof(now));
+	if (ps_status_read(&now) < 0)
+		return;
+
+	if (g_snap.thermal_profile[0] && strcmp(g_snap.thermal_profile, now.thermal_profile)) {
+		fprintf(stderr, "perfectsensed: resume: profile %s → %s\n",
+			now.thermal_profile, g_snap.thermal_profile);
+		(void)ps_mode_set(g_snap.thermal_profile);
+	}
+	if (!g_snap.fan_auto && !fc_runtime_enabled() &&
+	    (g_snap.fan_target_cpu != now.fan_target_cpu || g_snap.fan_target_gpu != now.fan_target_gpu ||
+	     now.fan_auto)) {
+		fprintf(stderr, "perfectsensed: resume: fans %u/%u%%\n", g_snap.fan_target_cpu,
+			g_snap.fan_target_gpu);
+		(void)ps_fan_set(g_snap.fan_target_cpu, g_snap.fan_target_gpu);
+	}
+	if (g_snap.rgb[0] && strcmp(g_snap.rgb, now.rgb))
+		(void)ps_rgb_set(g_snap.rgb);
+	if (g_snap.rgb_effect[0] && strcmp(g_snap.rgb_effect, now.rgb_effect))
+		(void)ps_rgb_effect_set(g_snap.rgb_effect);
+	if (g_snap.logo[0] && strcmp(g_snap.logo, now.logo))
+		(void)ps_logo_set(g_snap.logo);
+	restore_int("backlight_timeout", g_snap.backlight_timeout, now.backlight_timeout);
+	restore_int("usb_charging", g_snap.usb_charging, now.usb_charging);
+	restore_int("battery_limiter", g_snap.battery_limiter, now.battery_limiter);
+	restore_int("lcd_override", g_snap.lcd_override, now.lcd_override);
+
+	/* A GPU power cycle drops clock offsets: re-apply the profile when it wakes up. */
+	g_oc_pending = 1;
+	oc_try_apply();
+}
+
+static int on_prepare_for_sleep(sd_bus_message *m, void *userdata, sd_bus_error *err)
+{
+	int going_down = 0;
+
+	(void)userdata;
+	(void)err;
+	if (sd_bus_message_read(m, "b", &going_down) < 0)
+		return 0;
+
+	if (going_down) {
+		snapshot_state();
+		if (g_sleep_lock >= 0) {
+			close(g_sleep_lock);
+			g_sleep_lock = -1;
+		}
+		return 0;
+	}
+
+	/* Give the EC a moment to settle, then reconcile. */
+	{
+		struct timespec ts = { .tv_sec = 2, .tv_nsec = 0 };
+
+		nanosleep(&ts, NULL);
+	}
+	fprintf(stderr, "perfectsensed: resume detected — reconciling settings\n");
+	restore_after_resume();
+	take_sleep_lock();
+	return 0;
+}
+
+static void take_sleep_lock(void)
+{
+	sd_bus_message *reply = NULL;
+	int fd = -1;
+
+	if (!g_bus || g_sleep_lock >= 0)
+		return;
+	if (sd_bus_call_method(g_bus, "org.freedesktop.login1", "/org/freedesktop/login1",
+			       "org.freedesktop.login1.Manager", "Inhibit", NULL, &reply, "ssss",
+			       "sleep", "perfectsensed", "Snapshot hardware state before suspend",
+			       "delay") < 0)
+		return;
+	if (sd_bus_message_read(reply, "h", &fd) >= 0 && fd >= 0)
+		g_sleep_lock = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+	sd_bus_message_unref(reply);
+}
+
+static int bus_setup(void)
+{
+	int r = sd_bus_open_system(&g_bus);
+
+	if (r < 0)
+		return r;
+	r = sd_bus_match_signal(g_bus, NULL, "org.freedesktop.login1", "/org/freedesktop/login1",
+				"org.freedesktop.login1.Manager", "PrepareForSleep",
+				on_prepare_for_sleep, NULL);
+	if (r < 0) {
+		sd_bus_unref(g_bus);
+		g_bus = NULL;
+		return r;
+	}
+	take_sleep_lock();
+	return 0;
+}
+
+static void housekeeping(void)
+{
+	if (g_oc_pending)
+		oc_try_apply();
+	/* The delay lock is released on each suspend; re-arm it for the next one. */
+	take_sleep_lock();
+}
+
 static int udev_monitor_setup(void)
 {
 	int r;
@@ -330,16 +488,25 @@ int main(int argc, char **argv)
 		fprintf(stderr, "perfectsensed: udev monitor: %s\n",
 			strerror(-r));
 
+	r = bus_setup();
+	if (r < 0)
+		fprintf(stderr, "perfectsensed: logind bus (no resume restore): %s\n",
+			strerror(-r));
+	snapshot_state();
+	oc_try_apply();
+
 	sd_notify(0, "READY=1");
-	fprintf(stderr, "perfectsensed: running (fan_curve=%s, udev=%s)\n",
+	fprintf(stderr, "perfectsensed: running (fan_curve=%s, udev=%s, resume=%s)\n",
 		fc_runtime_enabled() ? "on" : "off",
-		g_udev_mon ? "on" : "off");
+		g_udev_mon ? "on" : "off", g_bus ? "on" : "off");
 
 	while (!g_stop) {
-		struct pollfd fds[2];
+		struct pollfd fds[3];
 		int nfds = 0;
 		int tfd;
 		int ufd = -1;
+		int bfd = -1;
+		int timeout_ms = HOUSEKEEPING_MS;
 
 		if (g_reload) {
 			g_reload = 0;
@@ -371,13 +538,32 @@ int main(int argc, char **argv)
 			}
 		}
 
-		if (nfds == 0) {
-			/* Idle: wait for signal (curve off, no udev). */
-			pause();
-			continue;
+		if (g_bus) {
+			uint64_t usec = UINT64_MAX;
+
+			bfd = sd_bus_get_fd(g_bus);
+			if (bfd >= 0) {
+				fds[nfds].fd = bfd;
+				fds[nfds].events = (short)sd_bus_get_events(g_bus);
+				fds[nfds].revents = 0;
+				nfds++;
+			}
+			if (sd_bus_get_timeout(g_bus, &usec) >= 0 && usec != UINT64_MAX) {
+				uint64_t now_us = (uint64_t)0;
+				struct timespec ts;
+
+				clock_gettime(CLOCK_MONOTONIC, &ts);
+				now_us = (uint64_t)ts.tv_sec * 1000000u + (uint64_t)ts.tv_nsec / 1000u;
+				if (usec <= now_us)
+					timeout_ms = 0;
+				else if ((usec - now_us) / 1000u < (uint64_t)timeout_ms)
+					timeout_ms = (int)((usec - now_us) / 1000u) + 1;
+			}
 		}
 
-		r = poll(fds, (nfds_t)nfds, -1);
+		r = poll(fds, (nfds_t)nfds, timeout_ms);
+		if (r == 0)
+			housekeeping();
 		if (r < 0) {
 			if (errno == EINTR)
 				continue;
@@ -401,11 +587,19 @@ int main(int argc, char **argv)
 			else if (ufd >= 0 && fds[i].fd == ufd)
 				on_udev_event();
 		}
+		if (g_bus) {
+			while (sd_bus_process(g_bus, NULL) > 0)
+				;
+		}
 	}
 
 	sd_notify(0, "STOPPING=1");
 	fc_runtime_shutdown();
 	if (g_udev_mon)
 		sd_device_monitor_unref(g_udev_mon);
+	if (g_sleep_lock >= 0)
+		close(g_sleep_lock);
+	if (g_bus)
+		sd_bus_unref(g_bus);
 	return 0;
 }

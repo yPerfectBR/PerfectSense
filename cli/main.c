@@ -31,6 +31,7 @@ static void usage(FILE *out)
 		"  mode get|set <name>         Thermal profile (+ nvidia-powerd)\n"
 		"  gpu powerd get|on|off       Dynamic Boost service (~80W / ~140W)\n"
 		"  gpu powermizer get|set …    Preferred Mode (best-effort)\n"
+		"  gpu oc status|apply [mode]  Acer per-mode GPU clock offsets (dGPU must be awake)\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
 		"  fan curve on|off|status|set|reload …\n"
 		"  battery get|on|off          80% charge limiter\n"
@@ -724,6 +725,74 @@ static int cmd_gpu(int argc, char **argv)
 			return 0;
 		}
 		fputs("perfectsense: gpu powerd get|on|off\n", stderr);
+		return 1;
+	}
+
+	if (!strcmp(argv[0], "oc")) {
+		struct ps_gpu_oc_state st;
+		char cur[32] = "";
+		const char *which = argc >= 3 ? argv[2] : NULL;
+
+		if (argc < 2) {
+			fputs("perfectsense: gpu oc status|apply [mode]\n", stderr);
+			return 1;
+		}
+		if (!which) {
+			(void)ps_mode_get(cur, sizeof(cur));
+			which = cur;
+		}
+		if (!strcmp(argv[1], "status")) {
+			err = ps_gpu_oc_status(which, &st);
+			if (err == -ENODEV) {
+				if (g_json)
+					fputs("{\"supported\":false}\n", stdout);
+				else
+					puts("gpu oc: board not covered");
+				return 0;
+			}
+			if (err)
+				return fail(err);
+			if (g_json) {
+				char live_core[16] = "null", live_mem[16] = "null";
+
+				if (st.core_mhz != PS_GPU_OC_UNKNOWN) {
+					snprintf(live_core, sizeof(live_core), "%d", st.core_mhz);
+					snprintf(live_mem, sizeof(live_mem), "%d", st.mem_mhz);
+				}
+				printf("{\"supported\":true,\"awake\":%s,\"mode\":\"%s\","
+				       "\"wanted\":{\"core\":%d,\"mem\":%d},"
+				       "\"live\":{\"core\":%s,\"mem\":%s}}\n",
+				       st.awake ? "true" : "false", which,
+				       st.wanted_core_mhz, st.wanted_mem_mhz,
+				       live_core, live_mem);
+			} else {
+				printf("mode %s wants +%d/+%d MHz; dGPU %s",
+				       which, st.wanted_core_mhz, st.wanted_mem_mhz,
+				       st.awake ? "awake" : "asleep (not touched)");
+				if (st.core_mhz != PS_GPU_OC_UNKNOWN)
+					printf("; live %+d/%+d MHz", st.core_mhz, st.mem_mhz);
+				putchar('\n');
+			}
+			return 0;
+		}
+		if (!strcmp(argv[1], "apply")) {
+			err = ps_gpu_oc_apply(which);
+			if (err == -EAGAIN) {
+				if (g_json)
+					fputs("{\"ok\":false,\"pending\":true}\n", stdout);
+				else
+					puts("dGPU asleep: profile pending (not woken)");
+				return 0;
+			}
+			if (err)
+				return fail(err);
+			if (g_json)
+				fputs("{\"ok\":true}\n", stdout);
+			else
+				puts("gpu oc applied");
+			return 0;
+		}
+		fputs("perfectsense: gpu oc status|apply [mode]\n", stderr);
 		return 1;
 	}
 

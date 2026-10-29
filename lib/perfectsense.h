@@ -81,6 +81,25 @@ int ps_gpu_powermizer_for_profile(const char *thermal_name);
 int ps_gpu_powermizer_from_name(const char *name, int *mode);
 const char *ps_gpu_powermizer_name(int mode);
 
+/*
+ * Per-mode NVIDIA clock offset profile (Acer PredatorSense GPU OC step).
+ * Only touches NVML while the dGPU is already awake.
+ * ps_gpu_oc_apply(): 0 applied / already set, -EAGAIN dGPU asleep (retry later),
+ * -ENODEV board not covered, -ENOENT/-ENOSYS no usable NVML.
+ */
+#define PS_GPU_OC_UNKNOWN (-9999)
+struct ps_gpu_oc_state {
+	int supported; /* board has an Acer profile */
+	int awake; /* dGPU runtime_status == active */
+	int wanted_core_mhz;
+	int wanted_mem_mhz;
+	int core_mhz; /* live offset, PS_GPU_OC_UNKNOWN when asleep */
+	int mem_mhz;
+};
+int ps_gpu_oc_wanted(const char *mode, int *core_mhz, int *mem_mhz);
+int ps_gpu_oc_status(const char *mode, struct ps_gpu_oc_state *out);
+int ps_gpu_oc_apply(const char *mode);
+
 int ps_fan_duty_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_target_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_set(unsigned cpu, unsigned gpu);

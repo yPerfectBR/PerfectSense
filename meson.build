@@ -15,6 +15,8 @@ project(
 
 inc = include_directories('lib')
 libsystemd = dependency('libsystemd')
+cc = meson.get_compiler('c')
+libdl = cc.find_library('dl', required: false)
 
 libperfectsense = library(
   'perfectsense',
@@ -24,8 +26,10 @@ libperfectsense = library(
     'lib/temps.c',
     'lib/fan_curve.c',
     'lib/gpu_nvidia.c',
+    'lib/gpu_oc.c',
   ],
   include_directories: inc,
+  dependencies: [libdl],
   install: true,
   version: meson.project_version(),
   soversion: '0',

@@ -294,6 +294,20 @@ int ps_mode_set(const char *name)
 	if (err)
 		return err;
 
+	/*
+	 * Acer rule (PredatorSense UI): entering or leaving Quiet puts the fans
+	 * back to firmware Auto, so a manual duty set for another mode does not
+	 * fight Quiet's low-noise curve.
+	 */
+	{
+		char prev[32] = "";
+		int to_quiet = !strcmp(normalized, "quiet");
+
+		(void)ps_mode_get(prev, sizeof(prev));
+		if (strcmp(prev, normalized) && (to_quiet || !strcmp(prev, "quiet")))
+			(void)ps_fan_set_auto();
+	}
+
 	path_join(path, sizeof(path), ps_sysfs_root(), "thermal_profile");
 	err = write_text(path, normalized);
 	if (err)
@@ -313,6 +327,12 @@ int ps_mode_set(const char *name)
 	 * must not undo thermal/powerd — ignore -ENODEV and write errors.
 	 */
 	(void)ps_cpu_power_for_profile(normalized);
+
+	/*
+	 * Acer GPU clock profile for the new mode. -EAGAIN (dGPU asleep) is not an
+	 * error here: perfectsensed retries once the dGPU wakes up on its own.
+	 */
+	(void)ps_gpu_oc_apply(normalized);
 
 	return err; /* 0 or -EBUSY from powerd */
 }

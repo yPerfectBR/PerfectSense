@@ -27,6 +27,7 @@ libperfectsense = library(
     'lib/fan_curve.c',
     'lib/gpu_nvidia.c',
     'lib/gpu_oc.c',
+    'lib/hdmi.c',
   ],
   include_directories: inc,
   dependencies: [libdl],

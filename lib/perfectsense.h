@@ -100,6 +100,20 @@ int ps_gpu_oc_wanted(const char *mode, int *core_mhz, int *mem_mhz);
 int ps_gpu_oc_status(const char *mode, struct ps_gpu_oc_state *out);
 int ps_gpu_oc_apply(const char *mode);
 
+/*
+ * HDMI / dGPU display policy (Umbriel include perfect-sense-gpu.toml).
+ * HDMI and USB-C DP are wired to the dGPU; "off" leaves it unopened by the
+ * compositor so RTD3 can power it down. Applies on the next session start.
+ */
+struct ps_hdmi_state {
+	int configured; /* 1 on, 0 off (next session) */
+	int session; /* 1 running Umbriel holds the dGPU, 0 not, -1 no Umbriel */
+	int dgpu_awake; /* 1 active, 0 suspended, -1 unknown */
+	char pci[32];
+};
+int ps_hdmi_status(struct ps_hdmi_state *out);
+int ps_hdmi_set(int on);
+
 int ps_fan_duty_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_target_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_set(unsigned cpu, unsigned gpu);

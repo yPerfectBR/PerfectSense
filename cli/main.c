@@ -32,6 +32,7 @@ static void usage(FILE *out)
 		"  gpu powerd get|on|off       Dynamic Boost service (~80W / ~140W)\n"
 		"  gpu powermizer get|set …    Preferred Mode (best-effort)\n"
 		"  gpu oc status|apply [mode]  Acer per-mode GPU clock offsets (dGPU must be awake)\n"
+		"  hdmi status|on|off          HDMI/USB-C video via dGPU (off lets it sleep; next session)\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
 		"  fan curve on|off|status|set|reload …\n"
 		"  battery get|on|off          80% charge limiter\n"
@@ -842,6 +843,43 @@ static int cmd_gpu(int argc, char **argv)
 	return 1;
 }
 
+static int cmd_hdmi(int argc, char **argv)
+{
+	struct ps_hdmi_state st;
+	int err;
+
+	if (argc >= 1 && (!strcmp(argv[0], "on") || !strcmp(argv[0], "off"))) {
+		err = ps_hdmi_set(!strcmp(argv[0], "on"));
+		if (err)
+			return fail(err);
+		/* Validates the include; [drm] itself only applies on restart. */
+		(void)system("umbriel msg config-reload >/dev/null 2>&1");
+	} else if (argc >= 1 && strcmp(argv[0], "status") && strcmp(argv[0], "get")) {
+		fputs("perfectsense: hdmi status|on|off\n", stderr);
+		return 1;
+	}
+	err = ps_hdmi_status(&st);
+	if (err)
+		return fail(err);
+	if (g_json) {
+		printf("{\"hdmi\":\"%s\",\"session\":\"%s\",\"pending\":%s,"
+		       "\"dgpu\":\"%s\",\"pci\":\"%s\"}\n",
+		       st.configured ? "on" : "off",
+		       st.session < 0 ? "none" : st.session ? "on" : "off",
+		       st.session >= 0 && st.session != st.configured ? "true" : "false",
+		       st.dgpu_awake < 0 ? "unknown" : st.dgpu_awake ? "active" : "suspended",
+		       st.pci);
+		return 0;
+	}
+	printf("hdmi: %s\n", st.configured ? "on" : "off");
+	if (st.session >= 0)
+		printf("session: %s%s\n", st.session ? "on" : "off",
+		       st.session != st.configured ? " (restart the session to apply)" : "");
+	printf("dgpu: %s\n", st.dgpu_awake < 0 ? "unknown" :
+	       st.dgpu_awake ? "active" : "suspended");
+	return 0;
+}
+
 static int cmd_temps(void)
 {
 	int cpu_c = 0, gpu_c = 0;
@@ -1106,6 +1144,8 @@ int main(int argc, char **argv)
 		return cmd_temps();
 	if (!strcmp(cmd, "gpu"))
 		return cmd_gpu(argc - i, argv + i);
+	if (!strcmp(cmd, "hdmi"))
+		return cmd_hdmi(argc - i, argv + i);
 	if (!strcmp(cmd, "mode"))
 		return cmd_mode(argc - i, argv + i);
 	if (!strcmp(cmd, "fan"))

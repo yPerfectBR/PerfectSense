@@ -6,8 +6,9 @@
  * While the compositor keeps that GPU open for those outputs, RTD3 can never
  * power it down. "HDMI off" writes an Umbriel include that leaves the dGPU
  * unopened ([drm] ignored_pci_addresses), so it sleeps in D3cold; "HDMI on"
- * clears it. Umbriel reads [drm] only at startup, so a change applies on the
- * next session start.
+ * clears it. The CLI asks Umbriel to reload its config, and Umbriel opens or
+ * releases the dGPU on the spot (the Pandora fork); an Umbriel that reads [drm]
+ * only at startup applies it on the next session start.
  *
  * Nothing here touches the dGPU itself: the PCI address comes from sysfs IDs
  * and runtime_status, neither of which resumes a suspended device.
@@ -113,8 +114,34 @@ static int read_configured(void)
 	return on;
 }
 
-/* 1 when a running umbriel holds an NVIDIA device, 0 when not, -1 when none runs. */
-static int session_holds_dgpu(void)
+/* Whether an open file's target is one of the dGPU's DRM nodes (/dev/dri/cardN, renderDN). */
+static int is_dgpu_drm_node(const char *pci, const char *target)
+{
+	char path[PATH_MAX];
+	const char *name;
+	DIR *drm;
+	struct dirent *e;
+	int found = 0;
+
+	if (!pci || !pci[0] || strncmp(target, "/dev/dri/", 9))
+		return 0;
+	name = target + 9;
+	snprintf(path, sizeof(path), PCI_ROOT "/%s/drm", pci);
+	drm = opendir(path);
+	if (!drm)
+		return 0;
+	while ((e = readdir(drm)))
+		if (!strcmp(e->d_name, name)) {
+			found = 1;
+			break;
+		}
+	closedir(drm);
+	return found;
+}
+
+/* 1 when a running umbriel holds the dGPU (its DRM node or an NVIDIA device), 0 when not,
+ * -1 when none runs. */
+static int session_holds_dgpu(const char *pci)
 {
 	DIR *proc = opendir("/proc");
 	struct dirent *p;
@@ -157,7 +184,7 @@ static int session_holds_dgpu(void)
 			if (n <= 0)
 				continue;
 			target[n] = '\0';
-			if (!strncmp(target, "/dev/nvidia", 11)) {
+			if (!strncmp(target, "/dev/nvidia", 11) || is_dgpu_drm_node(pci, target)) {
 				result = 1;
 				break;
 			}
@@ -191,11 +218,11 @@ int ps_hdmi_status(struct ps_hdmi_state *out)
 		return -EINVAL;
 	memset(out, 0, sizeof(*out));
 	out->configured = read_configured();
-	out->session = session_holds_dgpu();
 	if (find_dgpu(out->pci, sizeof(out->pci)) == 0)
 		out->dgpu_awake = dgpu_awake(out->pci);
 	else
 		out->dgpu_awake = -1;
+	out->session = session_holds_dgpu(out->pci);
 	return 0;
 }
 

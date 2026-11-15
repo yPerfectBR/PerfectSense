@@ -3,12 +3,15 @@
  * perfectsense — one-shot CLI over libperfectsense (no daemon required).
  */
 
+#define _POSIX_C_SOURCE 200809L
+
 #include "perfectsense.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 static int g_json;
 
@@ -32,7 +35,7 @@ static void usage(FILE *out)
 		"  gpu powerd get|on|off       Dynamic Boost service (~80W / ~140W)\n"
 		"  gpu powermizer get|set …    Preferred Mode (best-effort)\n"
 		"  gpu oc status|apply [mode]  Acer per-mode GPU clock offsets (dGPU must be awake)\n"
-		"  hdmi status|on|off          HDMI/USB-C video via dGPU (off lets it sleep; next session)\n"
+		"  hdmi status|on|off          HDMI/USB-C video via dGPU (off lets it sleep; applies at once)\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
 		"  fan curve on|off|status|set|reload …\n"
 		"  battery get|on|off          80% charge limiter\n"
@@ -852,8 +855,10 @@ static int cmd_hdmi(int argc, char **argv)
 		err = ps_hdmi_set(!strcmp(argv[0], "on"));
 		if (err)
 			return fail(err);
-		/* Validates the include; [drm] itself only applies on restart. */
+		/* Umbriel opens or releases the dGPU while reloading (older builds: next session). */
 		(void)system("umbriel msg config-reload >/dev/null 2>&1");
+		/* Releasing closes the device a moment after the reload returns. */
+		nanosleep(&(struct timespec){ .tv_nsec = 500000000L }, NULL);
 	} else if (argc >= 1 && strcmp(argv[0], "status") && strcmp(argv[0], "get")) {
 		fputs("perfectsense: hdmi status|on|off\n", stderr);
 		return 1;

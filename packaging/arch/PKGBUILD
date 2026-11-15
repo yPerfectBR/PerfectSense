@@ -16,7 +16,7 @@
 
 pkgname=perfectsense
 pkgver=0.0.25
-pkgrel=3
+pkgrel=4
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
 url='https://github.com/yPerfectBR/PerfectSense'

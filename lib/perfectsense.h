@@ -114,6 +114,41 @@ struct ps_hdmi_state {
 int ps_hdmi_status(struct ps_hdmi_state *out);
 int ps_hdmi_set(int on);
 
+/*
+ * Internal panel color (lib/color.c). A wide-gamut panel shows sRGB content
+ * oversaturated; "srgb" asks the running compositor to map untagged sRGB into
+ * the panel's characterization (its EDID, or an ICC file), "native" turns the
+ * mapping off. Only the compositor can do the 3x3 conversion, so the choice is
+ * handed to it: Umbriel (include perfect-sense-color.toml), sway, KDE.
+ */
+struct ps_color_panel {
+	char connector[32]; /* "eDP-1" */
+	char vendor[4]; /* PNP ID, "CMN" */
+	unsigned product;
+	char model[16]; /* "N160GME-GTB" */
+	double red[2], green[2], blue[2], white[2]; /* CIE 1931 xy */
+	double gamma;
+	double coverage_srgb, coverage_p3; /* share of each gamut covered, xy area */
+	int wide; /* covers sRGB and most of P3: sRGB content needs mapping */
+};
+struct ps_color_state {
+	char mode[8]; /* "srgb" or "native" */
+	char profile[4096]; /* "edid" or an absolute ICC path */
+	char compositor[16]; /* umbriel | sway | kde | hyprland | gnome | unknown */
+	int applied; /* 1 the running compositor shows the choice, 0 not, -1 unknown (Umbriel only knows) */
+	int umbriel_include; /* 1 listed in config.toml, 0 missing, -1 not Umbriel */
+};
+int ps_color_parse_edid(const unsigned char *edid, size_t len, struct ps_color_panel *out);
+double ps_color_coverage(const struct ps_color_panel *panel, const double ref[3][2]);
+int ps_color_panel(struct ps_color_panel *out);
+int ps_color_write_edid_icc(const struct ps_color_panel *panel, char *out, size_t len);
+const char *ps_color_compositor(void);
+int ps_color_status(struct ps_color_state *out);
+/* Re-applies the saved choice; icc receives the profile file handed to file-based compositors.
+ * -ENOLINK: Umbriel's config.toml does not list the include; -EOPNOTSUPP: no adapter. */
+int ps_color_apply(struct ps_color_state *st, char *icc, size_t icc_len);
+int ps_color_set(const char *mode, const char *profile, struct ps_color_state *st, char *icc, size_t icc_len);
+
 int ps_fan_duty_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_target_get(unsigned *cpu, unsigned *gpu);
 int ps_fan_set(unsigned cpu, unsigned gpu);

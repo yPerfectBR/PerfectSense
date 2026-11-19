@@ -16,13 +16,13 @@
 
 pkgname=perfectsense
 pkgver=0.0.25
-pkgrel=4
+pkgrel=5
 pkgdesc='Predator Sense–class controls for PHN16-72-74VX (kernel + userspace)'
 arch=('x86_64')
 url='https://github.com/yPerfectBR/PerfectSense'
 license=('AGPL-3.0-or-later' 'GPL-2.0-or-later')
-depends=('dkms' 'systemd-libs')
-makedepends=('meson' 'ninja' 'systemd')
+depends=('dkms' 'systemd-libs' 'lcms2')
+makedepends=('meson' 'ninja' 'systemd' 'lcms2')
 optdepends=(
   'linux-headers: DKMS build against the stock Arch linux kernel'
   'nvidia-open: recommended NVIDIA driver (Arch official)'

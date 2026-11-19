@@ -43,6 +43,26 @@ Emit machine-readable JSON for commands that support it (notably
 .BR status ).
 .SH COMMANDS
 .TP
+.B color status|srgb|native|apply \fR[\fB\-\-profile edid\fR|\fIICC\fR]
+Internal panel gamut. A wide\-gamut panel shows sRGB content oversaturated;
+.B srgb
+asks the running compositor to map untagged sRGB into the panel's
+characterization (its EDID primaries, or an ICC file), and
+.B native
+turns the mapping off. Only the compositor can do the conversion, so the
+choice goes to it: Umbriel through the include
+.IR ~/.config/umbriel/perfect\-sense\-color.toml ,
+sway through
+.BR swaymsg ,
+KDE through
+.BR kscreen\-doctor ;
+other compositors get the generated ICC file to load by hand. The choice is
+kept in
+.I ~/.config/perfect\-sense/color.conf
+and
+.B apply
+re\-applies it.
+.TP
 .B status
 Print thermal profile, AC, fans, temps/RPM, battery/misc, RGB/logo summary.
 .TP

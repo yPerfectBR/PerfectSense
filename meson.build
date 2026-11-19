@@ -17,6 +17,8 @@ inc = include_directories('lib')
 libsystemd = dependency('libsystemd')
 cc = meson.get_compiler('c')
 libdl = cc.find_library('dl', required: false)
+libm = cc.find_library('m', required: false)
+lcms2 = dependency('lcms2')
 
 libperfectsense = library(
   'perfectsense',
@@ -28,15 +30,25 @@ libperfectsense = library(
     'lib/gpu_nvidia.c',
     'lib/gpu_oc.c',
     'lib/hdmi.c',
+    'lib/color.c',
   ],
   include_directories: inc,
-  dependencies: [libdl],
+  dependencies: [libdl, libm, lcms2],
   install: true,
   version: meson.project_version(),
   soversion: '0',
 )
 
 install_headers('lib/perfectsense.h')
+
+color_test = executable(
+  'color-test',
+  'tests/color_test.c',
+  include_directories: inc,
+  link_with: libperfectsense,
+  build_by_default: false,
+)
+test('color', color_test)
 
 cli_exe = executable(
   'perfectsense',

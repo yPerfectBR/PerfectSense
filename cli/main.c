@@ -36,6 +36,8 @@ static void usage(FILE *out)
 		"  gpu powermizer get|set …    Preferred Mode (best-effort)\n"
 		"  gpu oc status|apply [mode]  Acer per-mode GPU clock offsets (dGPU must be awake)\n"
 		"  hdmi status|on|off          HDMI/USB-C video via dGPU (off lets it sleep; applies at once)\n"
+		"  color status|srgb|native|apply [--profile edid|<icc>]\n"
+		"                              Panel gamut: srgb maps sRGB content to the panel\n"
 		"  fan get|set <cpu> <gpu>|auto\n"
 		"  fan curve on|off|status|set|reload …\n"
 		"  battery get|on|off          80% charge limiter\n"
@@ -885,6 +887,90 @@ static int cmd_hdmi(int argc, char **argv)
 	return 0;
 }
 
+static const char *color_error(int err)
+{
+	switch (err) {
+	case -ENOLINK:
+		return "saved, but ~/.config/umbriel/config.toml does not list perfect-sense-color.toml "
+		       "under [include.optional] files";
+	case -EOPNOTSUPP:
+		return "saved; this compositor has no adapter: load the ICC profile below in its display settings";
+	case -ENODEV:
+		return "no connected internal panel with an EDID";
+	default:
+		return NULL;
+	}
+}
+
+static int cmd_color(int argc, char **argv)
+{
+	struct ps_color_panel panel;
+	struct ps_color_state st;
+	char icc[4096] = "";
+	const char *action = argc >= 1 ? argv[0] : "status";
+	const char *profile = NULL;
+	int err = 0, have_panel, i;
+
+	for (i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "--profile") && i + 1 < argc) {
+			profile = argv[++i];
+		} else {
+			fputs("perfectsense: color status|srgb|native|apply [--profile edid|<icc>]\n", stderr);
+			return 1;
+		}
+	}
+	if (!strcmp(action, "srgb") || !strcmp(action, "native")) {
+		err = ps_color_set(action, profile, &st, icc, sizeof(icc));
+	} else if (!strcmp(action, "apply")) {
+		ps_color_status(&st);
+		err = ps_color_apply(&st, icc, sizeof(icc));
+	} else if (strcmp(action, "status") && strcmp(action, "get")) {
+		fputs("perfectsense: color status|srgb|native|apply [--profile edid|<icc>]\n", stderr);
+		return 1;
+	}
+	if (err && !color_error(err))
+		return fail(err);
+	if (err)
+		fprintf(stderr, "perfectsense: color: %s\n", color_error(err));
+	if (!strcmp(action, "srgb") || !strcmp(action, "native") || !strcmp(action, "apply"))
+		/* Umbriel applies the include during the reload; read back what it now holds. */
+		nanosleep(&(struct timespec){ .tv_nsec = 200000000L }, NULL);
+	ps_color_status(&st);
+	have_panel = ps_color_panel(&panel) == 0;
+
+	if (g_json) {
+		printf("{\"mode\":\"%s\",\"profile\":\"%s\",\"compositor\":\"%s\",\"applied\":%s,"
+		       "\"umbriel_include\":%s",
+		       st.mode, !strcmp(st.profile, "edid") ? "edid" : "icc", st.compositor,
+		       st.applied < 0 ? "null" : st.applied ? "true" : "false",
+		       st.umbriel_include < 0 ? "null" : st.umbriel_include ? "true" : "false");
+		if (have_panel)
+			printf(",\"panel\":{\"connector\":\"%s\",\"vendor\":\"%s\",\"model\":\"%s\","
+			       "\"gamma\":%.2f,\"srgb\":%.1f,\"p3\":%.1f,\"wide\":%s}",
+			       panel.connector, panel.vendor, panel.model, panel.gamma,
+			       panel.coverage_srgb * 100, panel.coverage_p3 * 100, panel.wide ? "true" : "false");
+		puts("}");
+		return err ? 1 : 0;
+	}
+	if (have_panel) {
+		printf("panel: %s %s (%s)\n", panel.vendor, panel.model[0] ? panel.model : "?", panel.connector);
+		printf("gamut: %.0f%% sRGB, %.0f%% DCI-P3 (xy)%s\n", panel.coverage_srgb * 100,
+		       panel.coverage_p3 * 100, panel.wide ? " — wide: sRGB content looks oversaturated in native" : "");
+		printf("primaries: R %.4f,%.4f  G %.4f,%.4f  B %.4f,%.4f  W %.4f,%.4f  gamma %.2f\n",
+		       panel.red[0], panel.red[1], panel.green[0], panel.green[1], panel.blue[0], panel.blue[1],
+		       panel.white[0], panel.white[1], panel.gamma);
+	}
+	printf("mode: %s\n", st.mode);
+	printf("profile: %s\n", st.profile);
+	printf("compositor: %s%s\n", st.compositor,
+	       st.applied > 0 ? " (applied)" :
+	       !st.applied ? " (not applied yet)" :
+	       !strcmp(st.compositor, "umbriel") ? " (this Umbriel predates color_profile: restart the session)" : "");
+	if (icc[0] && strcmp(st.compositor, "umbriel"))
+		printf("icc: %s\n", icc);
+	return err ? 1 : 0;
+}
+
 static int cmd_temps(void)
 {
 	int cpu_c = 0, gpu_c = 0;
@@ -1151,6 +1237,8 @@ int main(int argc, char **argv)
 		return cmd_gpu(argc - i, argv + i);
 	if (!strcmp(cmd, "hdmi"))
 		return cmd_hdmi(argc - i, argv + i);
+	if (!strcmp(cmd, "color"))
+		return cmd_color(argc - i, argv + i);
 	if (!strcmp(cmd, "mode"))
 		return cmd_mode(argc - i, argv + i);
 	if (!strcmp(cmd, "fan"))
